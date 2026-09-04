@@ -1,0 +1,123 @@
+{
+  "target": "meta-llama/Llama-3.1-8B-Instruct",
+  "n": 10,
+  "maxtok": 128,
+  "C": 0.072,
+  "fixed_depths": [
+    4,
+    5,
+    6,
+    7
+  ],
+  "auc": 0.784,
+  "offline": {
+    "entropy": {
+      "thr": 5.0,
+      "speedup": 3.833,
+      "gain_vs_fixed_pct": 1.06
+    },
+    "margin": {
+      "thr": 0.02,
+      "speedup": 3.779,
+      "gain_vs_fixed_pct": -0.36
+    },
+    "cumprob": {
+      "thr": 0.03,
+      "speedup": 3.8952,
+      "gain_vs_fixed_pct": 2.7
+    },
+    "hidden": {
+      "thr": 0.2,
+      "speedup": 3.5277,
+      "gain_vs_fixed_pct": -6.99
+    }
+  },
+  "offline_fixed": {
+    "4": 3.3562,
+    "5": 3.5988,
+    "6": 3.7391,
+    "7": 3.7928
+  },
+  "fixed": {
+    "4": {
+      "humaneval": 121.8,
+      "gsm8k": 118.7,
+      "mt_bench": 120.71
+    },
+    "5": {
+      "humaneval": 129.54,
+      "gsm8k": 119.39,
+      "mt_bench": 116.78
+    },
+    "6": {
+      "humaneval": 133.19,
+      "gsm8k": 119.52,
+      "mt_bench": 124.44
+    },
+    "7": {
+      "humaneval": 134.6,
+      "gsm8k": 121.27,
+      "mt_bench": 125.46
+    }
+  },
+  "policies": {
+    "entropy": {
+      "humaneval": 137.76,
+      "gsm8k": 121.19,
+      "mt_bench": 127.16
+    },
+    "margin": {
+      "humaneval": 137.41,
+      "gsm8k": 120.5,
+      "mt_bench": 124.83
+    },
+    "cumprob": {
+      "humaneval": 138.53,
+      "gsm8k": 123.38,
+      "mt_bench": 128.64
+    },
+    "hidden": {
+      "humaneval": 122.69,
+      "gsm8k": 100.37,
+      "mt_bench": 106.29
+    }
+  },
+  "summary": {
+    "entropy": {
+      "offline_predicted_gain_pct": 1.06,
+      "wallclock_gain_pct_by_workload": {
+        "humaneval": 2.35,
+        "gsm8k": -0.07,
+        "mt_bench": 1.36
+      },
+      "wallclock_mean_gain_pct": 1.21
+    },
+    "margin": {
+      "offline_predicted_gain_pct": -0.36,
+      "wallclock_gain_pct_by_workload": {
+        "humaneval": 2.09,
+        "gsm8k": -0.63,
+        "mt_bench": -0.5
+      },
+      "wallclock_mean_gain_pct": 0.32
+    },
+    "cumprob": {
+      "offline_predicted_gain_pct": 2.7,
+      "wallclock_gain_pct_by_workload": {
+        "humaneval": 2.92,
+        "gsm8k": 1.74,
+        "mt_bench": 2.53
+      },
+      "wallclock_mean_gain_pct": 2.4
+    },
+    "hidden": {
+      "offline_predicted_gain_pct": -6.99,
+      "wallclock_gain_pct_by_workload": {
+        "humaneval": -8.85,
+        "gsm8k": -17.23,
+        "mt_bench": -15.28
+      },
+      "wallclock_mean_gain_pct": -13.79
+    }
+  }
+}

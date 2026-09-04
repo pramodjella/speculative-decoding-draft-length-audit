@@ -1,0 +1,8 @@
+policy,net_speedup,gap_vs_bestfixed_pct
+Fixed K=1,1.3855,-9.91
+Fixed K=3,1.5217,-1.05
+Fixed K=2 (best),1.5379,0.0
+AcceptHistory,1.3941,-9.35
+UCB,1.4633,-4.85
+EpsGreedy,1.4323,-6.87
+ORACLE(per-req),1.5687,2.01

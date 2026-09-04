@@ -1,0 +1,175 @@
+{
+  "model": "llama8b",
+  "batch": 1,
+  "temp": 0.8,
+  "tag": "t08",
+  "n": 8,
+  "maxtok": 128,
+  "cycles": 4,
+  "tps": {
+    "humaneval": {
+      "native2": [
+        154.63,
+        149.94,
+        155.4,
+        156.13
+      ],
+      "native3": [
+        150.57,
+        149.32,
+        151.0,
+        150.96
+      ],
+      "native7": [
+        110.66,
+        120.4,
+        122.25,
+        122.92
+      ],
+      "cum0.2": [
+        161.64,
+        163.14,
+        161.72,
+        162.64
+      ]
+    },
+    "gsm8k": {
+      "native2": [
+        152.45,
+        155.12,
+        156.94,
+        156.61
+      ],
+      "native3": [
+        158.19,
+        155.95,
+        155.09,
+        154.88
+      ],
+      "native7": [
+        125.18,
+        125.16,
+        124.89,
+        126.41
+      ],
+      "cum0.2": [
+        159.99,
+        159.69,
+        158.24,
+        158.97
+      ]
+    },
+    "mt_bench": {
+      "native2": [
+        128.17,
+        129.61,
+        130.17,
+        131.11
+      ],
+      "native3": [
+        119.47,
+        118.63,
+        118.87,
+        119.89
+      ],
+      "native7": [
+        92.49,
+        91.67,
+        90.91,
+        93.12
+      ],
+      "cum0.2": [
+        130.63,
+        132.19,
+        132.19,
+        131.76
+      ]
+    }
+  },
+  "mean_drafted": {
+    "native2": 2.0,
+    "native3": 3.0,
+    "native7": 7.0,
+    "cum0.2": 2.24
+  },
+  "summary": {
+    "humaneval": {
+      "native_means": {
+        "native2": 154.03,
+        "native3": 150.46,
+        "native7": 119.06
+      },
+      "cum_vs_each": {
+        "native2": {
+          "mean_gain_pct": 5.39,
+          "se": 0.99
+        },
+        "native3": {
+          "mean_gain_pct": 7.86,
+          "se": 0.42
+        },
+        "native7": {
+          "mean_gain_pct": 36.54,
+          "se": 2.83
+        }
+      },
+      "cum_vs_strongest": {
+        "config": "native2",
+        "mean_gain_pct": 5.39,
+        "se": 0.99
+      }
+    },
+    "gsm8k": {
+      "native_means": {
+        "native2": 155.28,
+        "native3": 156.03,
+        "native7": 125.41
+      },
+      "cum_vs_each": {
+        "native2": {
+          "mean_gain_pct": 2.56,
+          "se": 0.79
+        },
+        "native3": {
+          "mean_gain_pct": 2.05,
+          "se": 0.29
+        },
+        "native7": {
+          "mean_gain_pct": 26.96,
+          "se": 0.41
+        }
+      },
+      "cum_vs_strongest": {
+        "config": "native3",
+        "mean_gain_pct": 2.05,
+        "se": 0.29
+      }
+    },
+    "mt_bench": {
+      "native_means": {
+        "native2": 129.76,
+        "native3": 119.22,
+        "native7": 92.05
+      },
+      "cum_vs_each": {
+        "native2": {
+          "mean_gain_pct": 1.49,
+          "se": 0.3
+        },
+        "native3": {
+          "mean_gain_pct": 10.47,
+          "se": 0.44
+        },
+        "native7": {
+          "mean_gain_pct": 43.09,
+          "se": 0.89
+        }
+      },
+      "cum_vs_strongest": {
+        "config": "native2",
+        "mean_gain_pct": 1.49,
+        "se": 0.3
+      }
+    }
+  }
+}

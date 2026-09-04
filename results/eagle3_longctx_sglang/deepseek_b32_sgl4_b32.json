@@ -1,0 +1,22 @@
+{
+  "target": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+  "eagle_head": "yuhuili/EAGLE3-DeepSeek-R1-Distill-LLaMA-8B",
+  "model": "deepseek",
+  "batch": 32,
+  "ctx_len": 8192,
+  "results": [
+    {
+      "method": "baseline",
+      "K": 0,
+      "workload": "quality",
+      "model": "deepseek",
+      "batch": 32,
+      "ctx_len": 8192,
+      "tokens": 1814,
+      "secs": 2.649,
+      "tok_per_s": 684.83,
+      "net_speedup": 1.0,
+      "accepted_tokens_per_step": null
+    }
+  ]
+}

@@ -1,0 +1,2401 @@
+
+
+########## FILE: __init__.py (28 lines) ##########
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+import torch
+
+from vllm.config import VllmConfig
+
+
+def init_speculator(vllm_config: VllmConfig, device: torch.device):
+    speculative_config = vllm_config.speculative_config
+    assert speculative_config is not None
+    if speculative_config.use_gemma4_mtp():
+        from vllm.v1.worker.gpu.spec_decode.gemma4.speculator import (
+            Gemma4Speculator,
+        )
+
+        return Gemma4Speculator(vllm_config, device)
+    elif speculative_config.method == "mtp":
+        from vllm.v1.worker.gpu.spec_decode.mtp.speculator import MTPSpeculator
+
+        return MTPSpeculator(vllm_config, device)
+    elif speculative_config.use_eagle():
+        from vllm.v1.worker.gpu.spec_decode.eagle.speculator import (
+            EagleSpeculator,
+        )
+
+        return EagleSpeculator(vllm_config, device)
+    else:
+        raise NotImplementedError(f"{speculative_config.method} is not supported yet.")
+
+
+########## FILE: autoregressive/__init__.py (2 lines) ##########
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+
+
+########## FILE: autoregressive/cudagraph_utils.py (105 lines) ##########
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+from collections.abc import Callable
+
+import torch
+
+from vllm.config.compilation import CUDAGraphMode
+from vllm.v1.kv_cache_interface import KVCacheConfig
+from vllm.v1.worker.gpu.block_table import BlockTables
+from vllm.v1.worker.gpu.cudagraph_utils import (
+    AttentionState,
+    AttentionStatePair,
+    BatchExecutionDescriptor,
+    CudaGraphManager,
+    prepare_inputs_to_capture,
+)
+from vllm.v1.worker.gpu.input_batch import InputBuffers
+from vllm.v1.worker.gpu.model_states.interface import ModelState
+from vllm.v1.worker.utils import AttentionGroup
+
+
+class PrefillSpeculatorCudaGraphManager(CudaGraphManager):
+    """CudaGraphManager for draft prefill, using pre-built attention states
+    from the target model's capture."""
+
+    def capture(
+        self,
+        forward_fn: Callable,
+        attn_states: dict[BatchExecutionDescriptor, AttentionStatePair],
+        progress_bar_desc: str = "Capturing CUDA graphs",
+    ) -> None:
+        def create_forward_fn(
+            desc: BatchExecutionDescriptor,
+            warmup: bool,
+        ) -> tuple[Callable[[CUDAGraphMode], None], AttentionState]:
+            num_tokens = desc.num_tokens
+            num_reqs = desc.num_reqs or min(num_tokens, self.max_num_reqs)
+            num_tokens_across_dp = (
+                torch.full((self.dp_size,), num_tokens, dtype=torch.int32, device="cpu")
+                if self.dp_size > 1
+                else None
+            )
+            attn_state_pair = attn_states[desc]
+            attn_state = attn_state_pair.warmup if warmup else attn_state_pair.captured
+            attn_metadata, slot_mappings = attn_state
+            fwd = lambda cg_mode: forward_fn(
+                num_reqs,
+                num_tokens,
+                attn_metadata,
+                slot_mappings,
+                num_tokens_across_dp,
+                cg_mode,
+            )
+            return fwd, attn_state
+
+        super().capture(create_forward_fn, progress_bar_desc)
+
+
+class DecodeSpeculatorCudaGraphManager(CudaGraphManager):
+    """CudaGraphManager for draft decode, building its own attention metadata."""
+
+    def capture(
+        self,
+        forward_fn: Callable,
+        model_state: ModelState,
+        input_buffers: InputBuffers,
+        block_tables: BlockTables,
+        attn_groups: list[list[AttentionGroup]],
+        kv_cache_config: KVCacheConfig,
+        progress_bar_desc: str = "Capturing CUDA graphs",
+    ) -> None:
+        def create_forward_fn(
+            desc: BatchExecutionDescriptor,
+            warmup: bool,
+        ) -> tuple[Callable[[CUDAGraphMode], None], AttentionState]:
+            num_tokens = desc.num_tokens
+            num_reqs = desc.num_reqs or min(num_tokens, self.max_num_reqs)
+            num_tokens_across_dp = (
+                torch.full((self.dp_size,), num_tokens, dtype=torch.int32, device="cpu")
+                if self.dp_size > 1
+                else None
+            )
+            attn_state = prepare_inputs_to_capture(
+                num_reqs,
+                num_tokens,
+                model_state,
+                input_buffers,
+                block_tables,
+                attn_groups,
+                kv_cache_config,
+                skip_attn=(desc.cg_mode == CUDAGraphMode.PIECEWISE),
+            )
+            attn_metadata, slot_mappings = attn_state
+
+            fwd = lambda cg_mode: forward_fn(
+                num_reqs,
+                num_tokens,
+                attn_metadata,
+                slot_mappings,
+                num_tokens_across_dp,
+                cg_mode,
+            )
+            return fwd, attn_state
+
+        super().capture(create_forward_fn, progress_bar_desc)
+
+
+########## FILE: autoregressive/speculator.py (795 lines) ##########
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+from typing import Any
+
+import torch
+
+from vllm.config import VllmConfig
+from vllm.config.compilation import CUDAGraphMode
+from vllm.forward_context import BatchDescriptor, set_forward_context
+from vllm.logger import init_logger
+from vllm.multimodal import MULTIMODAL_REGISTRY
+from vllm.triton_utils import tl, triton
+from vllm.v1.worker.gpu.attn_utils import build_slot_mappings_by_layer
+from vllm.v1.worker.gpu.cudagraph_utils import (
+    AttentionStatePair,
+    BatchExecutionDescriptor,
+    get_uniform_token_count,
+)
+from vllm.v1.worker.gpu.dp_utils import dispatch_cg_and_sync_dp
+from vllm.v1.worker.gpu.input_batch import InputBatch, InputBuffers
+from vllm.v1.worker.gpu.sample.gumbel import gumbel_sample
+from vllm.v1.worker.gpu.spec_decode.autoregressive.cudagraph_utils import (
+    DecodeSpeculatorCudaGraphManager,
+    PrefillSpeculatorCudaGraphManager,
+)
+from vllm.v1.worker.gpu.spec_decode.speculator import DraftModelSpeculator
+
+logger = init_logger(__name__)
+
+
+class AutoRegressiveSpeculator(DraftModelSpeculator):
+    def __init__(self, vllm_config: VllmConfig, device: torch.device):
+        super().__init__(vllm_config, device)
+
+        self.hidden_states = torch.zeros(
+            self.max_num_tokens, self.hidden_size, dtype=self.dtype, device=device
+        )
+        self.current_draft_step = torch.tensor(0, dtype=torch.int64, device=device)
+        self.last_token_indices = torch.zeros(
+            self.max_num_reqs, dtype=torch.int64, device=device
+        )
+
+        self.supports_mm_inputs = MULTIMODAL_REGISTRY.supports_multimodal_inputs(
+            self.draft_model_config
+        )
+        if self.supports_mm_inputs:
+            self.inputs_embeds = torch.zeros(
+                self.max_num_tokens, self.hidden_size, dtype=self.dtype, device=device
+            )
+
+        self.prefill_cudagraph_manager: PrefillSpeculatorCudaGraphManager | None = None
+        self.decode_cudagraph_manager: DecodeSpeculatorCudaGraphManager | None = None
+
+    @property
+    def advance_draft_positions(self) -> bool:
+        """
+        Whether to increment positions and seq_lens between draft steps.
+
+        True for Eagle/standard MTP (each step produces new KV).
+        False for Gemma4 MTP (Q-only, shares target KV, constant positions).
+        """
+        return True
+
+    @property
+    def model_returns_tuple(self) -> bool:
+        """
+        Whether the draft model's forward() returns a tuple.
+
+        True: returns (last_hidden_states, hidden_states) — Eagle, Gemma4 MTP.
+        False: returns a single tensor used for both — standard MTP (DeepSeek).
+        """
+        return True
+
+    def init_cudagraph_manager(self, cudagraph_mode: CUDAGraphMode) -> None:
+        # Initialize cudagraph manager for draft prefill (draft position 0).
+        self.prefill_cudagraph_manager = PrefillSpeculatorCudaGraphManager(
+            self.vllm_config,
+            self.device,
+            cudagraph_mode,
+            self.num_speculative_steps + 1,
+        )
+
+        # PIECEWISE cudagraphs are not supported for draft decodes.
+        if cudagraph_mode.decode_mode() == CUDAGraphMode.FULL:
+            cudagraph_mode = CUDAGraphMode.FULL_DECODE_ONLY
+        else:
+            cudagraph_mode = CUDAGraphMode.NONE
+
+        # Initialize cudagraph manager for draft decodes (draft positions > 0).
+        self.decode_cudagraph_manager = DecodeSpeculatorCudaGraphManager(
+            self.vllm_config,
+            self.device,
+            cudagraph_mode,
+            decode_query_len=1,
+        )
+
+    def capture(
+        self,
+        attn_states: dict[BatchExecutionDescriptor, AttentionStatePair],
+    ) -> None:
+        logger.info("Capturing model for speculator...")
+        # Reset indices to zeros to prevent stale values from prior
+        # dummy runs to cause out-of-bounds indexing during capture.
+        self.last_token_indices.zero_()
+
+        # Capture the prefill routine (model forward + compute_logits +
+        # sample).
+        # For FULL graphs, the entire routine is recorded as one graph.
+        # For PIECEWISE, only the model's compiled regions are captured
+        # and the rest (compute_logits, gumbel_sample) runs eagerly.
+        assert self.prefill_cudagraph_manager is not None
+        if self.prefill_cudagraph_manager.use_breakable_cg:
+            self.prefill_cudagraph_manager.init_breakable_cg_runner(self.model)
+        self.prefill_cudagraph_manager.capture(
+            self._prefill,
+            attn_states,
+            progress_bar_desc="Capturing prefill CUDA graphs",
+        )
+
+        if self.num_speculative_steps == 1:
+            return
+
+        # Capture the decode draft generation routine (model forward +
+        # sample + update_draft_inputs) for a single
+        # step.
+        assert self.decode_cudagraph_manager is not None
+        self.decode_cudagraph_manager.capture(
+            self._generate_draft,
+            self.model_state,
+            self.input_buffers,
+            self.block_tables,
+            self.attn_groups,
+            self.kv_cache_config,
+            progress_bar_desc="Capturing decode CUDA graphs",
+        )
+
+    @torch.inference_mode()
+    def propose(
+        self,
+        input_batch: InputBatch,
+        attn_metadata: dict[str, Any],
+        slot_mappings: dict[str, torch.Tensor],
+        # [num_tokens, hidden_size]
+        last_hidden_states: torch.Tensor,
+        # num_layers x [num_tokens, hidden_size]
+        aux_hidden_states: list[torch.Tensor] | None,
+        # [num_reqs]
+        num_sampled: torch.Tensor,
+        # [num_reqs]
+        num_rejected: torch.Tensor,
+        # [max_num_reqs]
+        last_sampled: torch.Tensor,
+        # [max_num_reqs]
+        next_prefill_tokens: torch.Tensor,
+        # [max_num_reqs]
+        temperature: torch.Tensor,
+        # [max_num_reqs]
+        seeds: torch.Tensor,
+        num_tokens_across_dp: torch.Tensor | None = None,
+        dummy_run: bool = False,
+        skip_attn_for_dummy_run: bool = False,
+        mm_inputs: tuple[list[torch.Tensor], torch.Tensor] | None = None,
+        is_profile: bool = False,
+    ) -> torch.Tensor:
+        num_tokens = input_batch.num_tokens_after_padding
+        num_reqs = input_batch.num_reqs
+        max_query_len = input_batch.num_scheduled_tokens.max()
+        max_seq_len = input_batch.seq_lens_cpu_upper_bound[:num_reqs].max().item()
+        self.draft_max_seq_len = min(
+            max_seq_len + self.num_speculative_steps, self.max_model_len
+        )
+
+        # NOTE(woosuk): To avoid CPU-GPU synchronization without CPU knowing the
+        # number of rejected tokens, we maintain the size of input_ids and
+        # hidden_states the same as the target model's. This means, we pad each
+        # request's query length to include any rejected positions. By doing so,
+        # we can also reuse the attention metadata (e.g., query_start_loc,
+        # seq_lens) of the target model.
+        if aux_hidden_states:
+            assert self.method == "eagle3"
+            hidden_states = self.model.combine_hidden_states(
+                torch.cat(aux_hidden_states, dim=-1)
+            )
+        else:
+            hidden_states = last_hidden_states
+        self.hidden_states[:num_tokens].copy_(hidden_states)
+
+        self._copy_request_inputs(
+            num_reqs,
+            input_batch.idx_mapping,
+            temperature,
+            seeds,
+        )
+
+        # Get the input ids and last token indices for the speculator.
+        prepare_prefill_inputs(
+            self.last_token_indices,
+            self.current_draft_step,
+            self.input_buffers,
+            input_batch,
+            num_sampled,
+            num_rejected,
+            last_sampled,
+            next_prefill_tokens,
+            self.max_num_reqs,
+        )
+
+        # When all requests are decoding (no true prefills), each has
+        # num_speculative_steps + 1 tokens, enabling FULL graph replay.
+        uniform_token_count = get_uniform_token_count(
+            num_reqs,
+            # Use the actual number of tokens without padding added by
+            # the target model during FULL cudagraph.
+            input_batch.num_tokens,
+            max_query_len,
+        )
+        prefill_batch_desc, num_tokens_across_dp = dispatch_cg_and_sync_dp(
+            self.prefill_cudagraph_manager,
+            num_reqs,
+            num_tokens,
+            uniform_token_count,
+            dp_size=self.dp_size,
+            dp_rank=self.dp_rank,
+            need_eager=is_profile,
+        )
+
+        if prefill_batch_desc.cg_mode == CUDAGraphMode.FULL:
+            # Replay the full graph for draft prefill.
+            assert self.prefill_cudagraph_manager is not None
+            self.prefill_cudagraph_manager.run_fullgraph(prefill_batch_desc)
+        else:
+            # The target model's attention metadata and slot mappings
+            # can directly be used for draft prefill, because of the
+            # identical batch shape and KV cache layout.
+            self._prefill(
+                num_reqs,
+                prefill_batch_desc.num_tokens,
+                attn_metadata,
+                slot_mappings,
+                num_tokens_across_dp=num_tokens_across_dp,
+                cudagraph_runtime_mode=prefill_batch_desc.cg_mode,
+                mm_inputs=mm_inputs,
+            )
+
+        if self.num_speculative_steps == 1:
+            # Early exit.
+            return self.draft_tokens[:num_reqs, :1]
+
+        # Prepare the inputs for the decode steps.
+        prepare_decode_inputs(
+            self.draft_tokens[:num_reqs, 0],
+            input_batch.seq_lens,
+            num_rejected,
+            self.input_buffers,
+            self.max_model_len,
+            self.max_num_reqs,
+            advance_draft_positions=self.advance_draft_positions,
+        )
+
+        # Each request produces exactly 1 token per draft generation step,
+        # enabling FULL graph replay.
+        decode_batch_desc, num_tokens_across_dp = dispatch_cg_and_sync_dp(
+            self.decode_cudagraph_manager,
+            num_reqs,
+            num_reqs,
+            uniform_token_count=1,
+            dp_size=self.dp_size,
+            dp_rank=self.dp_rank,
+            need_eager=is_profile,
+        )
+
+        # Generate the remaining num_speculative_steps - 1 draft tokens.
+        self._multi_step_decode(
+            num_reqs,
+            dummy_run and skip_attn_for_dummy_run,
+            decode_batch_desc,
+            num_tokens_across_dp,
+        )
+
+        return self.draft_tokens[:num_reqs]
+
+    def sample_draft(
+        self,
+        hidden_states: torch.Tensor,
+        positions: torch.Tensor,
+        idx_mapping: torch.Tensor,
+        temperature: torch.Tensor,
+        seeds: torch.Tensor,
+        draft_step: torch.Tensor,
+        draft_logits: torch.Tensor | None,
+    ) -> torch.Tensor:
+        logits = self.model.compute_logits(hidden_states)
+        if draft_logits is not None:
+            # NOTE(woosuk): We must add 1 to the positions to match the Gumbel noise
+            # used for draft and target sampling.
+            return gumbel_sample(
+                logits,
+                idx_mapping,
+                temperature,
+                seeds,
+                positions + 1,
+                apply_temperature=True,
+                output_processed_logits=draft_logits,
+                output_processed_logits_col=draft_step,
+                use_fp64=self.use_fp64_gumbel,
+            )
+        else:
+            return logits.argmax(dim=-1)
+
+    @torch.inference_mode()
+    def _run_model(
+        self,
+        num_tokens: int,
+        attn_metadata: dict[str, Any] | None,
+        slot_mappings: dict[str, torch.Tensor] | None,
+        num_tokens_across_dp: torch.Tensor | None,
+        cudagraph_runtime_mode: CUDAGraphMode = CUDAGraphMode.NONE,
+        mm_inputs: tuple[list[torch.Tensor], torch.Tensor] | None = None,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        batch_descriptor = BatchDescriptor(num_tokens=num_tokens)
+        with set_forward_context(
+            attn_metadata,
+            self.vllm_config,
+            num_tokens=num_tokens,
+            cudagraph_runtime_mode=cudagraph_runtime_mode,
+            num_tokens_across_dp=num_tokens_across_dp,
+            slot_mapping=slot_mappings,
+            batch_descriptor=batch_descriptor,
+        ):
+            inputs_embeds = None
+            if self.supports_mm_inputs:
+                # Merge multimodal embeddings with input ids.
+                mm_embeds, is_mm_embed = mm_inputs or (None, None)
+                num_input_tokens = (
+                    is_mm_embed.shape[0] if is_mm_embed is not None else num_tokens
+                )
+                self.inputs_embeds[:num_input_tokens] = self.model.embed_input_ids(
+                    self.input_buffers.input_ids[:num_input_tokens],
+                    multimodal_embeddings=mm_embeds,
+                    is_multimodal=is_mm_embed,
+                )
+                inputs_embeds = self.inputs_embeds[:num_tokens]
+
+            model_inputs = dict(
+                input_ids=self.input_buffers.input_ids[:num_tokens],
+                positions=self.input_buffers.positions[:num_tokens],
+                hidden_states=self.hidden_states[:num_tokens],
+                inputs_embeds=inputs_embeds,
+            )
+            if cudagraph_runtime_mode == CUDAGraphMode.PIECEWISE:
+                # Draft prefill with PIECEWISE cudagraph (compiled PW or breakable),
+                # chosen inside run_pw_graph.
+                assert self.prefill_cudagraph_manager is not None
+                ret_hidden_states = self.prefill_cudagraph_manager.run_pw_graph(
+                    self.model, model_inputs
+                )
+            else:
+                # Eager (NONE): call the raw model directly.
+                ret_hidden_states = self.model(**model_inputs)
+        if self.model_returns_tuple:
+            last_hidden_states, hidden_states = ret_hidden_states
+        else:
+            last_hidden_states = ret_hidden_states
+            hidden_states = ret_hidden_states
+        return last_hidden_states, hidden_states
+
+    def _prefill(
+        self,
+        num_reqs: int,
+        num_tokens: int,
+        attn_metadata: dict[str, Any] | None,
+        slot_mappings: dict[str, torch.Tensor] | None,
+        num_tokens_across_dp: torch.Tensor | None,
+        cudagraph_runtime_mode: CUDAGraphMode = CUDAGraphMode.NONE,
+        mm_inputs: tuple[list[torch.Tensor], torch.Tensor] | None = None,
+    ) -> None:
+        last_token_indices = self.last_token_indices[:num_reqs]
+        positions = self.input_buffers.positions[last_token_indices]
+        idx_mapping = self.idx_mapping[:num_reqs]
+
+        last_hidden_states, hidden_states = self._run_model(
+            num_tokens,
+            attn_metadata,
+            slot_mappings,
+            num_tokens_across_dp=num_tokens_across_dp,
+            cudagraph_runtime_mode=cudagraph_runtime_mode,
+            mm_inputs=mm_inputs,
+        )
+        sample_hidden_states = last_hidden_states[last_token_indices]
+
+        self.draft_tokens[:num_reqs, 0] = self.sample_draft(
+            sample_hidden_states,
+            positions,
+            idx_mapping,
+            self.temperature,
+            self.seeds,
+            self.current_draft_step,
+            self.draft_logits,
+        )
+        self.hidden_states[:num_reqs] = hidden_states[last_token_indices]
+        self.input_buffers.positions[:num_reqs] = positions
+
+    def _multi_step_decode(
+        self,
+        num_reqs: int,
+        skip_attn: bool,
+        batch_desc: BatchExecutionDescriptor,
+        num_tokens_across_dp: torch.Tensor | None,
+    ) -> None:
+        positions = self.input_buffers.positions[:num_reqs]
+        query_start_loc = self.input_buffers.query_start_loc[: num_reqs + 1]
+        idx_mapping = self.idx_mapping[:num_reqs]
+
+        attn_metadata = None
+        slot_mappings_by_layer = None
+        for step in range(1, self.num_speculative_steps):
+            # Rebuild every step when positions advance, or just once
+            # on the first step when positions are constant (Gemma4 MTP).
+            if not skip_attn and (self.advance_draft_positions or step == 1):
+                slot_mappings = self.block_tables.compute_slot_mappings(
+                    idx_mapping,
+                    query_start_loc,
+                    positions,
+                    batch_desc.num_tokens,
+                )
+                slot_mappings_by_layer = build_slot_mappings_by_layer(
+                    slot_mappings, self.kv_cache_config
+                )
+                attn_metadata = self._build_draft_attn_metadata(
+                    num_reqs=num_reqs,
+                    num_reqs_padded=batch_desc.num_reqs or num_reqs,
+                    num_tokens_padded=batch_desc.num_tokens,
+                )
+
+            # Update the current draft step.
+            self.current_draft_step.fill_(step)
+
+            # Generate draft tokens for the current step.
+            if batch_desc.cg_mode == CUDAGraphMode.FULL:
+                assert self.decode_cudagraph_manager is not None
+                self.decode_cudagraph_manager.run_fullgraph(batch_desc)
+            else:
+                self._generate_draft(
+                    num_reqs,
+                    batch_desc.num_tokens,
+                    attn_metadata,
+                    slot_mappings_by_layer,
+                    num_tokens_across_dp=num_tokens_across_dp,
+                    cudagraph_runtime_mode=batch_desc.cg_mode,
+                )
+
+    def _generate_draft(
+        self,
+        num_reqs: int,
+        num_tokens_padded: int,
+        attn_metadata: dict[str, Any] | None,
+        slot_mappings: dict[str, torch.Tensor] | None,
+        num_tokens_across_dp: torch.Tensor | None,
+        cudagraph_runtime_mode: CUDAGraphMode = CUDAGraphMode.NONE,
+    ) -> None:
+        idx_mapping = self.idx_mapping[:num_reqs]
+        positions = self.input_buffers.positions[:num_reqs]
+        # Run the draft model forward pass.
+        last_hidden_states, hidden_states = self._run_model(
+            num_tokens_padded,
+            attn_metadata,
+            slot_mappings,
+            num_tokens_across_dp,
+            cudagraph_runtime_mode,
+        )
+        last_hidden_states = last_hidden_states[:num_reqs]
+
+        # Sample the draft tokens.
+        draft_tokens = self.sample_draft(
+            last_hidden_states,
+            positions,
+            idx_mapping,
+            self.temperature,
+            self.seeds,
+            self.current_draft_step,
+            self.draft_logits,
+        )
+
+        # Update the inputs for the next step.
+        update_draft_inputs(
+            draft_tokens,
+            self.current_draft_step,
+            hidden_states,
+            self.draft_tokens,
+            self.hidden_states,
+            self.input_buffers,
+            num_reqs,
+            self.max_model_len,
+            self.num_speculative_steps,
+            advance_draft_positions=self.advance_draft_positions,
+        )
+
+
+@triton.jit
+def _prepare_prefill_inputs_kernel(
+    last_token_indices_ptr,
+    draft_current_step_ptr,
+    draft_input_ids_ptr,
+    draft_positions_ptr,
+    draft_query_start_loc_ptr,
+    draft_seq_lens_ptr,
+    target_input_ids_ptr,
+    target_positions_ptr,
+    idx_mapping_ptr,
+    last_sampled_ptr,
+    next_prefill_tokens_ptr,
+    num_sampled_ptr,
+    num_rejected_ptr,
+    query_start_loc_ptr,
+    seq_lens_ptr,
+    max_num_reqs,
+    BLOCK_SIZE: tl.constexpr,
+):
+    req_idx = tl.program_id(0)
+    num_reqs = tl.num_programs(0)
+    req_state_idx = tl.load(idx_mapping_ptr + req_idx)
+
+    query_start = tl.load(query_start_loc_ptr + req_idx)
+    query_end = tl.load(query_start_loc_ptr + req_idx + 1)
+    query_len = query_end - query_start
+    seq_len = tl.load(seq_lens_ptr + req_idx)
+
+    # Get the true query length and next token after accounting for rejected tokens.
+    num_rejected = tl.load(num_rejected_ptr + req_idx)
+    query_len -= num_rejected
+
+    num_sampled = tl.load(num_sampled_ptr + req_idx)
+    if num_sampled > 0:
+        next_token = tl.load(last_sampled_ptr + req_state_idx).to(tl.int32)
+    else:
+        # Chunked prefilling.
+        # Get the next prefill token.
+        next_token = tl.load(next_prefill_tokens_ptr + req_state_idx)
+
+    # Shift target_input_ids by one.
+    for i in range(1, query_len, BLOCK_SIZE):
+        block = i + tl.arange(0, BLOCK_SIZE)
+        mask = block < query_len
+        input_ids = tl.load(target_input_ids_ptr + query_start + block, mask=mask)
+        tl.store(draft_input_ids_ptr + query_start + block - 1, input_ids, mask=mask)
+
+    last_token_index = query_start + query_len - 1
+    tl.store(last_token_indices_ptr + req_idx, last_token_index)
+    tl.store(draft_input_ids_ptr + last_token_index, next_token)
+
+    # Copy positions.
+    for i in range(0, query_len, BLOCK_SIZE):
+        block = i + tl.arange(0, BLOCK_SIZE)
+        mask = block < query_len
+        target_pos = tl.load(target_positions_ptr + query_start + block, mask=mask)
+        tl.store(draft_positions_ptr + query_start + block, target_pos, mask=mask)
+
+    # Copy query start locations.
+    tl.store(draft_query_start_loc_ptr + req_idx, query_start)
+    # Copy sequence lengths.
+    tl.store(draft_seq_lens_ptr + req_idx, seq_len)
+    if req_idx == (num_reqs - 1):
+        # Reset the current draft step to 0.
+        tl.store(draft_current_step_ptr, 0)
+        # Pad query_start_loc for CUDA graphs.
+        for i in range(num_reqs, max_num_reqs + 1, BLOCK_SIZE):
+            block = i + tl.arange(0, BLOCK_SIZE)
+            mask = block < max_num_reqs + 1
+            tl.store(draft_query_start_loc_ptr + block, query_end, mask=mask)
+        # Pad seq_lens for CUDA graphs.
+        for i in range(num_reqs, max_num_reqs, BLOCK_SIZE):
+            block = i + tl.arange(0, BLOCK_SIZE)
+            mask = block < max_num_reqs
+            tl.store(draft_seq_lens_ptr + block, 0, mask=mask)
+        # Pad last_token_indices for CUDA graphs.
+        for i in range(num_reqs, max_num_reqs, BLOCK_SIZE):
+            block = i + tl.arange(0, BLOCK_SIZE)
+            mask = block < max_num_reqs
+            tl.store(last_token_indices_ptr + block, 0, mask=mask)
+
+
+def prepare_prefill_inputs(
+    # [num_reqs]
+    last_token_indices: torch.Tensor,
+    current_draft_step: torch.Tensor,
+    input_buffers: InputBuffers,
+    input_batch: InputBatch,
+    # [num_reqs]
+    num_sampled: torch.Tensor,
+    # [num_reqs]
+    num_rejected: torch.Tensor,
+    # [max_num_reqs]
+    last_sampled: torch.Tensor,
+    # [max_num_reqs]
+    next_prefill_tokens: torch.Tensor,
+    max_num_reqs,
+) -> torch.Tensor:
+    num_reqs = input_batch.num_reqs
+    _prepare_prefill_inputs_kernel[(num_reqs,)](
+        last_token_indices,
+        current_draft_step,
+        input_buffers.input_ids,
+        input_buffers.positions,
+        input_buffers.query_start_loc,
+        input_buffers.seq_lens,
+        input_batch.input_ids,
+        input_batch.positions,
+        input_batch.idx_mapping,
+        last_sampled,
+        next_prefill_tokens,
+        num_sampled,
+        num_rejected,
+        input_batch.query_start_loc,
+        input_batch.seq_lens,
+        max_num_reqs,
+        BLOCK_SIZE=1024,
+    )
+    return last_token_indices
+
+
+@triton.jit
+def _prepare_decode_inputs_kernel(
+    draft_tokens_ptr,
+    draft_tokens_stride,
+    target_seq_lens_ptr,
+    num_rejected_ptr,
+    input_ids_ptr,
+    positions_ptr,
+    query_start_loc_ptr,
+    seq_lens_ptr,
+    max_model_len,
+    max_num_reqs,
+    BLOCK_SIZE: tl.constexpr,
+    ADVANCE_DRAFT_POSITIONS: tl.constexpr,
+):
+    req_idx = tl.program_id(0)
+    num_reqs = tl.num_programs(0) - 1
+    if req_idx == num_reqs:
+        # Compute query_start_loc. Pad it with the last query_start_loc
+        # for CUDA graphs.
+        for i in range(0, max_num_reqs + 1, BLOCK_SIZE):
+            block = i + tl.arange(0, BLOCK_SIZE)
+            q = tl.where(block < num_reqs, block, num_reqs)
+            mask = block < max_num_reqs + 1
+            tl.store(query_start_loc_ptr + block, q, mask=mask)
+        # Pad seq_lens for CUDA graphs.
+        for i in range(req_idx, max_num_reqs, BLOCK_SIZE):
+            block = i + tl.arange(0, BLOCK_SIZE)
+            mask = block < max_num_reqs
+            tl.store(seq_lens_ptr + block, 0, mask=mask)
+        return
+
+    # draft token -> input id.
+    draft_token = tl.load(draft_tokens_ptr + req_idx * draft_tokens_stride)
+    tl.store(input_ids_ptr + req_idx, draft_token)
+
+    if ADVANCE_DRAFT_POSITIONS:
+        # Compute position and seq_lens.
+        # NOTE(woosuk): To prevent out-of-range access, we clamp these values
+        # if they reach the max model length.
+        position = tl.load(positions_ptr + req_idx)
+        position = tl.minimum(position + 1, max_model_len - 1)
+        tl.store(positions_ptr + req_idx, position)
+
+        target_seq_len = tl.load(target_seq_lens_ptr + req_idx)
+        num_rejected = tl.load(num_rejected_ptr + req_idx)
+        seq_len = target_seq_len - num_rejected
+        seq_len = tl.minimum(seq_len + 1, max_model_len)
+        tl.store(seq_lens_ptr + req_idx, seq_len)
+
+
+def prepare_decode_inputs(
+    draft_tokens: torch.Tensor,
+    target_seq_lens: torch.Tensor,
+    num_rejected: torch.Tensor,
+    input_buffers: InputBuffers,
+    max_model_len: int,
+    max_num_reqs: int,
+    advance_draft_positions: bool = True,
+):
+    num_reqs = draft_tokens.shape[0]
+    _prepare_decode_inputs_kernel[(num_reqs + 1,)](
+        draft_tokens,
+        draft_tokens.stride(0),
+        target_seq_lens,
+        num_rejected,
+        input_buffers.input_ids,
+        input_buffers.positions,
+        input_buffers.query_start_loc,
+        input_buffers.seq_lens,
+        max_model_len,
+        max_num_reqs,
+        BLOCK_SIZE=1024,
+        ADVANCE_DRAFT_POSITIONS=advance_draft_positions,
+    )
+
+
+@triton.jit
+def _update_draft_inputs_kernel(
+    output_draft_tokens_ptr,
+    output_draft_tokens_stride,
+    next_input_hidden_states_ptr,
+    next_input_hidden_states_stride,
+    input_ids_ptr,
+    positions_ptr,
+    seq_lens_ptr,
+    draft_tokens_ptr,
+    current_draft_step_ptr,
+    hidden_states_ptr,
+    hidden_states_stride,
+    hidden_size,
+    max_model_len,
+    num_speculative_steps,
+    BLOCK_SIZE: tl.constexpr,
+    ADVANCE_DRAFT_POSITIONS: tl.constexpr,
+):
+    req_idx = tl.program_id(0)
+
+    # Write the sampled draft token into self.draft_tokens[req_idx, step].
+    draft_token = tl.load(draft_tokens_ptr + req_idx)
+    step = tl.load(current_draft_step_ptr)
+    tl.store(
+        output_draft_tokens_ptr + req_idx * output_draft_tokens_stride + step,
+        draft_token,
+    )
+
+    if step >= num_speculative_steps - 1:
+        # This is the final step. Skip updating draft forward inputs.
+        return
+
+    # Write the sampled draft token into the input ids tensor for the next
+    # forward pass.
+    tl.store(input_ids_ptr + req_idx, draft_token)
+
+    # Copy hidden states into the input hidden states tensor for the next
+    # forward pass.
+    for i in range(0, hidden_size, BLOCK_SIZE):
+        block = i + tl.arange(0, BLOCK_SIZE)
+        mask = block < hidden_size
+        hidden_states = tl.load(
+            hidden_states_ptr + req_idx * hidden_states_stride + block,
+            mask=mask,
+        )
+        tl.store(
+            next_input_hidden_states_ptr
+            + req_idx * next_input_hidden_states_stride
+            + block,
+            hidden_states,
+            mask=mask,
+        )
+
+    if ADVANCE_DRAFT_POSITIONS:
+        # Increment position and seq_lens.
+        # NOTE(woosuk): To prevent out-of-range access, we clamp these values
+        # if they reach the max model length.
+        position = tl.load(positions_ptr + req_idx)
+        position = tl.minimum(position + 1, max_model_len - 1)
+        tl.store(positions_ptr + req_idx, position)
+
+        seq_len = tl.load(seq_lens_ptr + req_idx)
+        seq_len = tl.minimum(seq_len + 1, max_model_len)
+        tl.store(seq_lens_ptr + req_idx, seq_len)
+
+
+def update_draft_inputs(
+    draft_tokens: torch.Tensor,
+    current_draft_step: torch.Tensor,
+    hidden_states: torch.Tensor,
+    output_draft_tokens: torch.Tensor,
+    next_input_hidden_states: torch.Tensor,
+    input_buffers: InputBuffers,
+    num_reqs: int,
+    max_model_len: int,
+    num_speculative_steps: int,
+    advance_draft_positions: bool = True,
+):
+    _, hidden_size = hidden_states.shape
+    _update_draft_inputs_kernel[(num_reqs,)](
+        output_draft_tokens,
+        output_draft_tokens.stride(0),
+        next_input_hidden_states,
+        next_input_hidden_states.stride(0),
+        input_buffers.input_ids,
+        input_buffers.positions,
+        input_buffers.seq_lens,
+        draft_tokens,
+        current_draft_step,
+        hidden_states,
+        hidden_states.stride(0),
+        hidden_size,
+        max_model_len,
+        num_speculative_steps,
+        BLOCK_SIZE=1024,
+        ADVANCE_DRAFT_POSITIONS=advance_draft_positions,
+    )
+
+
+########## FILE: eagle/__init__.py (0 lines) ##########
+
+
+########## FILE: eagle/eagle3_utils.py (46 lines) ##########
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+from typing import cast
+
+import torch.nn as nn
+
+from vllm.config import SpeculativeConfig
+from vllm.logger import init_logger
+from vllm.model_executor.models.interfaces import SupportsEagle3, supports_eagle3
+
+logger = init_logger(__name__)
+
+
+def set_eagle3_aux_hidden_state_layers(
+    model: nn.Module,
+    spec_config: SpeculativeConfig,
+) -> None:
+    if not supports_eagle3(model):
+        raise RuntimeError("Model does not support EAGLE3 interface")
+    # mypy may infer the class-level overload for supports_eagle3.
+    # Narrow explicitly to the runtime protocol instance.
+    if isinstance(model, type):
+        raise RuntimeError("Expected model instance for EAGLE3 configuration")
+    eagle3_model = cast(SupportsEagle3, model)
+
+    aux_layers = get_eagle3_aux_layers_from_config(spec_config)
+    if aux_layers:
+        logger.info("Using Eagle3 auxiliary layers from config: %s", aux_layers)
+    else:
+        aux_layers = eagle3_model.get_eagle3_default_aux_hidden_state_layers()
+        logger.info("Using Eagle3 auxiliary layers from model: %s", aux_layers)
+    eagle3_model.set_aux_hidden_state_layers(aux_layers)
+
+
+def get_eagle3_aux_layers_from_config(
+    spec_config: SpeculativeConfig,
+) -> tuple[int, ...] | None:
+    if not (spec_config and spec_config.draft_model_config):
+        return None
+    hf_config = spec_config.draft_model_config.hf_config
+    if not hasattr(hf_config, "eagle_aux_hidden_state_layer_ids"):
+        return None
+    layer_ids = hf_config.eagle_aux_hidden_state_layer_ids
+    if layer_ids and isinstance(layer_ids, (list, tuple)):
+        return tuple(layer_ids)
+    return None
+
+
+########## FILE: eagle/speculator.py (18 lines) ##########
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+
+import torch.nn as nn
+
+from vllm.v1.worker.gpu.spec_decode.autoregressive.speculator import (
+    AutoRegressiveSpeculator,
+)
+from vllm.v1.worker.gpu.spec_decode.eagle.utils import load_eagle_model
+
+
+class EagleSpeculator(AutoRegressiveSpeculator):
+    def load_draft_model(
+        self,
+        target_model: nn.Module,
+        target_attn_layer_names: set[str],
+    ) -> nn.Module:
+        return load_eagle_model(target_model, self.vllm_config)
+
+
+########## FILE: eagle/utils.py (90 lines) ##########
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+import torch
+import torch.nn as nn
+
+from vllm.config import VllmConfig
+from vllm.distributed.parallel_state import get_pp_group
+from vllm.model_executor.model_loader import get_model
+
+
+def _should_share(eagle: nn.Module, flag: str, draft, target) -> bool:
+    """Share when the draft has no own copy, or its copy matches the target."""
+
+    if not getattr(eagle, flag, False) or draft is None:
+        return True
+    if target is None:
+        return False
+    # torch.equal on GPU allocates a bool mask the size of the input.
+    # Use the faster GPU path when there is plenty of headroom;
+    # otherwise compare on CPU.
+    w = draft.weight
+    if w.is_cuda and torch.cuda.mem_get_info(w.device)[0] < w.numel() * 2:
+        return torch.equal(w.cpu(), target.weight.cpu())
+    return torch.equal(w, target.weight)
+
+
+def load_eagle_model(target_model: nn.Module, vllm_config: VllmConfig) -> nn.Module:
+    from vllm.compilation.backends import set_model_tag
+
+    speculative_config = vllm_config.speculative_config
+    assert speculative_config is not None
+    draft_model_config = speculative_config.draft_model_config
+    with set_model_tag("eagle_head"):
+        eagle_model = get_model(
+            vllm_config=vllm_config, model_config=draft_model_config
+        )
+
+    target_language_model = (
+        target_model.get_language_model()
+        if hasattr(target_model, "get_language_model")
+        else target_model
+    )
+    target_inner = target_language_model.model
+    draft_inner = eagle_model.model
+
+    # Skip embedding sharing under PP — each rank owns its own embedding.
+    if get_pp_group().world_size == 1:
+        target_embed = getattr(target_inner, "embed_tokens", None) or getattr(
+            target_inner, "embedding", None
+        )
+        draft_embed = getattr(draft_inner, "embed_tokens", None)
+        if target_embed is not None and _should_share(
+            eagle_model, "has_own_embed_tokens", draft_embed, target_embed
+        ):
+            if draft_embed is not None:
+                del draft_inner.embed_tokens
+            draft_inner.embed_tokens = target_embed
+
+    target_lm_head = getattr(target_model, "lm_head", None)
+    draft_lm_head = getattr(eagle_model, "lm_head", None)
+    if target_lm_head is not None and _should_share(
+        eagle_model, "has_own_lm_head", draft_lm_head, target_lm_head
+    ):
+        if draft_lm_head is not None:
+            del eagle_model.lm_head
+        eagle_model.lm_head = target_lm_head
+
+        # MTP layers route logits through layer.shared_head.head, not
+        # eagle_model.lm_head, so the per-layer copies need fixing up too.
+        layers = getattr(draft_inner, "layers", None)
+        if layers is not None:
+            items = layers.values() if isinstance(layers, nn.ModuleDict) else layers
+            for layer in items:
+                sh = getattr(layer, "shared_head", None)
+                if sh is not None and hasattr(sh, "head"):
+                    del sh.head
+                    sh.head = target_lm_head
+
+    # MTP shares topk_indices_buffer with the target model. We update
+    # every module in the draft that holds a buffer reference so that
+    # the per-layer indexer and sparse-attention backends all point to
+    # the target's buffer.
+    if hasattr(target_inner, "topk_indices_buffer"):
+        target_buffer = target_inner.topk_indices_buffer
+        if target_buffer is not None:
+            for _, module in draft_inner.named_modules():
+                if hasattr(module, "topk_indices_buffer"):
+                    module.topk_indices_buffer = target_buffer
+
+    return eagle_model
+
+
+########## FILE: gemma4/__init__.py (2 lines) ##########
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+
+
+########## FILE: gemma4/speculator.py (158 lines) ##########
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+"""Gemma4 MTP (Multi-Token Prediction) speculator for speculative decoding.
+
+The Gemma4 assistant model runs all decoder layers per draft step
+(producing one token), and all its attention layers share KV cache
+with the target model via cross-model KV sharing.
+"""
+
+from collections import defaultdict
+
+import torch.nn as nn
+
+from vllm.compilation.backends import set_model_tag
+from vllm.config import VllmConfig, replace
+from vllm.distributed.parallel_state import get_pp_group
+from vllm.logger import init_logger
+from vllm.model_executor.model_loader import get_model
+from vllm.v1.worker.gpu.spec_decode.autoregressive.speculator import (
+    AutoRegressiveSpeculator,
+)
+
+logger = init_logger(__name__)
+
+
+class Gemma4Speculator(AutoRegressiveSpeculator):
+    @property
+    def advance_draft_positions(self) -> bool:
+        # Gemma4 MTP is Q-only and reads K/V from the target's existing cache.
+        # No new KV slots are written, so positions and seq_lens stay fixed.
+        return False
+
+    @property
+    def model_returns_tuple(self) -> bool:
+        # forward() returns (draft_hidden_states, backbone_hidden_states).
+        # The proposer uses draft_hidden_states for compute_logits and
+        # backbone_hidden_states for the hidden-state feedback buffer.
+        return True
+
+    def load_draft_model(
+        self,
+        target_model: nn.Module,
+        target_attn_layer_names: set[str],
+    ) -> nn.Module:
+        draft_vllm_config = self._create_draft_vllm_config()
+        with set_model_tag("eagle_head"):
+            draft_model = get_model(
+                vllm_config=draft_vllm_config,
+                model_config=self.speculative_config.draft_model_config,
+                load_config=self.speculative_config.draft_load_config,
+            )
+        self._setup_gemma4_kv_sharing(draft_model, target_attn_layer_names)
+        self._share_embeddings(draft_model, target_model)
+        return draft_model
+
+    def _create_draft_vllm_config(self) -> VllmConfig:
+        """Preserve the target's forced TRITON_ATTN backend for draft layers.
+
+        Gemma4 forces TRITON_ATTN due to heterogeneous head dimensions
+        (head_dim=256 sliding, global_head_dim=512 full). The base class
+        resets attention_config.backend to None for draft models, causing
+        sliding layers to fall back to FLASH_ATTN which cannot handle
+        KV-shared cache. Override to carry the target's backend through.
+        """
+        draft_model_config = self.speculative_config.draft_model_config
+        draft_vllm_config = replace(
+            self.vllm_config,
+            model_config=draft_model_config,
+        )
+        target_backend = self.vllm_config.attention_config.backend
+        if target_backend is not None:
+            draft_vllm_config = replace(
+                draft_vllm_config,
+                attention_config=replace(
+                    draft_vllm_config.attention_config,
+                    backend=target_backend,
+                ),
+            )
+        return draft_vllm_config
+
+    def _setup_gemma4_kv_sharing(
+        self,
+        model: nn.Module,
+        target_attn_layer_names: set[str],
+    ) -> None:
+        """Wire draft layers to share KV with the target model.
+
+        Each draft decoder layer is mapped to the last non-KV-shared
+        target layer of the same attention type (sliding or full).
+        """
+        draft_config = self.speculative_config.draft_model_config.hf_config
+        draft_text_config = draft_config.get_text_config()
+        target_config = self.vllm_config.model_config.hf_config
+        target_text_config = target_config.get_text_config()
+        target_layer_types = getattr(target_text_config, "layer_types", [])
+
+        if not (hasattr(model, "model") and hasattr(model.model, "layers")):
+            return
+
+        target_num_kv_shared = getattr(target_text_config, "num_kv_shared_layers", 0)
+        num_non_shared = len(target_layer_types) - target_num_kv_shared
+        type_to_target_indices: dict[str, list[int]] = defaultdict(list)
+        for idx, lt in enumerate(target_layer_types[:num_non_shared]):
+            type_to_target_indices[lt].append(idx)
+
+        target_prefix = "model.layers"
+        for name in target_attn_layer_names:
+            if ".layers." in name:
+                target_prefix = name.split(".layers.")[0] + ".layers"
+                break
+
+        draft_layer_types = getattr(draft_text_config, "layer_types", [])
+        for draft_idx, layer in enumerate(model.model.layers):
+            if not hasattr(layer, "self_attn"):
+                continue
+            attn = getattr(layer.self_attn, "attn", None)
+            if attn is None:
+                continue
+
+            draft_layer_type = (
+                draft_layer_types[draft_idx]
+                if draft_idx < len(draft_layer_types)
+                else "full_attention"
+            )
+            candidates = type_to_target_indices.get(draft_layer_type, [])
+            if not candidates:
+                logger.warning(
+                    "No target layer of type '%s' for draft layer %d",
+                    draft_layer_type,
+                    draft_idx,
+                )
+                continue
+
+            target_idx = candidates[-1]
+            target_layer_name = f"{target_prefix}.{target_idx}.self_attn.attn"
+            attn.kv_sharing_target_layer_name = target_layer_name
+            logger.info(
+                "Gemma4 MTP: draft layer %d (%s) -> %s",
+                draft_idx,
+                draft_layer_type,
+                target_layer_name,
+            )
+
+    def _share_embeddings(
+        self,
+        draft_model: nn.Module,
+        target_model: nn.Module,
+    ) -> None:
+        target_language_model = (
+            target_model.get_language_model()
+            if hasattr(target_model, "get_language_model")
+            else target_model
+        )
+        if get_pp_group().world_size == 1:
+            target_embed = getattr(target_language_model.model, "embed_tokens", None)
+            if target_embed is not None:
+                del draft_model.model.embed_tokens
+                draft_model.model.embed_tokens = target_embed
+
+
+########## FILE: mtp/__init__.py (2 lines) ##########
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+
+
+########## FILE: mtp/speculator.py (22 lines) ##########
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+
+import torch.nn as nn
+
+from vllm.v1.worker.gpu.spec_decode.autoregressive.speculator import (
+    AutoRegressiveSpeculator,
+)
+from vllm.v1.worker.gpu.spec_decode.eagle.utils import load_eagle_model
+
+
+class MTPSpeculator(AutoRegressiveSpeculator):
+    @property
+    def model_returns_tuple(self) -> bool:
+        return False
+
+    def load_draft_model(
+        self,
+        target_model: nn.Module,
+        target_attn_layer_names: set[str],
+    ) -> nn.Module:
+        return load_eagle_model(target_model, self.vllm_config)
+
+
+########## FILE: rejection_sampler.py (144 lines) ##########
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+import torch
+
+from vllm.config import SpeculativeConfig
+from vllm.triton_utils import tl, triton
+from vllm.v1.outputs import LogprobsTensors
+from vllm.v1.spec_decode.utils import unconditional_to_conditional_rates
+from vllm.v1.worker.gpu.input_batch import InputBatch
+from vllm.v1.worker.gpu.metrics.logits import get_num_nans
+from vllm.v1.worker.gpu.sample.logprob import compute_topk_logprobs
+from vllm.v1.worker.gpu.sample.output import SamplerOutput
+from vllm.v1.worker.gpu.sample.sampler import Sampler
+from vllm.v1.worker.gpu.sample.states import NO_LOGPROBS
+from vllm.v1.worker.gpu.spec_decode.rejection_sampler_utils import (
+    rejection_sample,
+)
+
+
+@triton.jit
+def _flatten_sampled_kernel(
+    # [num_logits]
+    flat_sampled_ptr,
+    # [num_reqs, num_speculative_steps + 1]
+    sampled_ptr,
+    sampled_stride,
+    # [num_reqs]
+    num_sampled_ptr,
+    # [num_reqs + 1]
+    cu_num_logits_ptr,
+):
+    req_idx = tl.program_id(0)
+    start_idx = tl.load(cu_num_logits_ptr + req_idx)
+    num_sampled = tl.load(num_sampled_ptr + req_idx)
+    for i in range(num_sampled):
+        token_id = tl.load(sampled_ptr + req_idx * sampled_stride + i)
+        tl.store(flat_sampled_ptr + start_idx + i, token_id)
+
+
+class RejectionSampler:
+    def __init__(
+        self,
+        sampler: Sampler,
+        spec_config: SpeculativeConfig,
+        device: torch.device,
+    ):
+        self.sampler = sampler
+        self.num_speculative_steps = spec_config.num_speculative_tokens
+        self.rejection_sample_method = spec_config.rejection_sample_method
+        self.synthetic_conditional_rates: torch.Tensor | None = None
+        if self.rejection_sample_method == "synthetic":
+            assert spec_config.synthetic_acceptance_rates is not None
+            self.synthetic_conditional_rates = torch.tensor(
+                unconditional_to_conditional_rates(
+                    spec_config.synthetic_acceptance_rates
+                ),
+                dtype=torch.float32,
+                device=device,
+            )
+
+    def _get_logprobs_tensors(
+        self,
+        input_batch: InputBatch,
+        sampled: torch.Tensor,
+        num_sampled: torch.Tensor,
+        logits: torch.Tensor,
+    ) -> LogprobsTensors | None:
+        max_num_logprobs = self.sampler.sampling_states.max_num_logprobs(
+            input_batch.idx_mapping_np
+        )
+        if max_num_logprobs == NO_LOGPROBS:
+            return None
+
+        num_reqs = input_batch.cu_num_logits.shape[0] - 1
+        num_logits = logits.shape[0]
+        flat_sampled = torch.zeros(
+            num_logits, dtype=sampled.dtype, device=sampled.device
+        )
+        _flatten_sampled_kernel[(num_reqs,)](
+            flat_sampled,
+            sampled,
+            sampled.stride(0),
+            num_sampled,
+            input_batch.cu_num_logits,
+            num_warps=1,
+        )
+        expanded_logits = num_logits != input_batch.idx_mapping.shape[0]
+        return compute_topk_logprobs(
+            logits,
+            max_num_logprobs,
+            flat_sampled,
+            input_batch.cu_num_logits_np.tolist() if expanded_logits else None,
+        )
+
+    def __call__(
+        self,
+        logits: torch.Tensor,
+        input_batch: InputBatch,
+        draft_logits: torch.Tensor | None = None,
+    ) -> SamplerOutput:
+        # NOTE(woosuk): We intentionally compute num_nans before sampling to make clear
+        # that num_nans is computed before applying penalties and temperature.
+        num_nans = get_num_nans(logits) if self.sampler.compute_nans else None
+
+        draft_sampled = input_batch.input_ids[input_batch.logits_indices]
+        pos = input_batch.positions[input_batch.logits_indices]
+        processed_logits = self.sampler.apply_sampling_params(
+            logits,
+            input_batch.expanded_idx_mapping,
+            input_batch.idx_mapping_np,
+            pos,
+            draft_sampled,
+            input_batch.expanded_local_pos,
+        )
+        sampled, num_sampled = rejection_sample(
+            processed_logits,
+            draft_logits,
+            draft_sampled,
+            input_batch.cu_num_logits,
+            pos,
+            input_batch.idx_mapping,
+            input_batch.expanded_idx_mapping,
+            input_batch.expanded_local_pos,
+            self.sampler.sampling_states.temperature.gpu,
+            self.sampler.sampling_states.seeds.gpu,
+            self.num_speculative_steps,
+            self.synthetic_conditional_rates,
+            use_fp64=self.sampler.use_fp64_gumbel,
+        )
+        logprobs_tensors = self._get_logprobs_tensors(
+            input_batch,
+            sampled,
+            num_sampled,
+            processed_logits
+            if self.sampler.logprobs_mode == "processed_logprobs"
+            else logits,
+        )
+
+        return SamplerOutput(
+            sampled_token_ids=sampled,
+            logprobs_tensors=logprobs_tensors,
+            num_nans=num_nans,
+            num_sampled=num_sampled,
+        )
+
+
+########## FILE: rejection_sampler_utils.py (670 lines) ##########
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+import torch
+
+from vllm.triton_utils import tl, triton
+from vllm.v1.worker.gpu.sample.gumbel import gumbel_block_argmax, tl_rand64
+
+
+@triton.jit
+def _compute_block_max_and_sumexp(logits):
+    block_max = tl.max(logits, axis=0)
+    block_sumexp = tl.where(
+        block_max > float("-inf"),
+        tl.sum(tl.exp(logits - block_max)),
+        0.0,
+    )
+    return block_max, block_sumexp
+
+
+@triton.jit
+def _compute_global_lse(
+    local_max_ptr,
+    local_max_stride,
+    local_sumexp_ptr,
+    local_sumexp_stride,
+    logit_idx,
+    vocab_num_blocks,
+    PADDED_VOCAB_NUM_BLOCKS: tl.constexpr,
+):
+    blocks = tl.arange(0, PADDED_VOCAB_NUM_BLOCKS)
+    blocks_mask = blocks < vocab_num_blocks
+    maxes = tl.load(
+        local_max_ptr + logit_idx * local_max_stride + blocks,
+        mask=blocks_mask,
+        other=float("-inf"),
+    )
+    sumexps = tl.load(
+        local_sumexp_ptr + logit_idx * local_sumexp_stride + blocks,
+        mask=blocks_mask,
+        other=0.0,
+    )
+    global_max = tl.max(maxes, axis=0)
+    global_lse = global_max + tl.log(tl.sum(sumexps * tl.exp(maxes - global_max)))
+    return global_lse
+
+
+@triton.jit
+def _compute_block_stats_kernel(
+    # [num_logits, num_blocks]
+    target_local_argmax_ptr,
+    target_local_argmax_stride,
+    # [num_logits, num_blocks]
+    target_local_max_ptr,
+    target_local_max_stride,
+    # [num_logits, num_blocks]
+    target_local_sumexp_ptr,
+    target_local_sumexp_stride,
+    # [num_logits, num_blocks]
+    draft_local_max_ptr,
+    draft_local_max_stride,
+    # [num_logits, num_blocks]
+    draft_local_sumexp_ptr,
+    draft_local_sumexp_stride,
+    # [num_logits, V]
+    target_logits_ptr,
+    target_logits_stride,
+    # [max_num_reqs, num_speculative_steps, V]
+    draft_logits_ptr,
+    draft_logits_stride_0,
+    draft_logits_stride_1,
+    # [num_logits]
+    expanded_idx_mapping_ptr,
+    # [num_logits]
+    expanded_local_pos_ptr,
+    # [max_num_reqs]
+    temp_ptr,
+    vocab_size,
+    num_speculative_steps,
+    BLOCK_SIZE: tl.constexpr,
+    HAS_DRAFT_LOGITS: tl.constexpr,
+):
+    logit_idx = tl.program_id(0)
+    draft_step_idx = tl.load(expanded_local_pos_ptr + logit_idx)
+
+    if draft_step_idx >= num_speculative_steps:
+        # Bonus token. Max/argmax and summed exponentials are not needed.
+        return
+
+    req_state_idx = tl.load(expanded_idx_mapping_ptr + logit_idx)
+    temp = tl.load(temp_ptr + req_state_idx).to(tl.float32)
+
+    block_idx = tl.program_id(1)
+    block_offsets = block_idx * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
+    mask = block_offsets < vocab_size
+
+    if temp == 0.0:
+        # Greedy sampling. Only the target max/argmax are needed.
+        target_logits = tl.load(
+            target_logits_ptr + logit_idx * target_logits_stride + block_offsets,
+            mask=mask,
+            other=float("-inf"),
+        ).to(tl.float32)
+        value, idx = tl.max(target_logits, axis=0, return_indices=True)
+        token_id = block_idx * BLOCK_SIZE + idx
+        tl.store(
+            target_local_argmax_ptr
+            + logit_idx * target_local_argmax_stride
+            + block_idx,
+            token_id,
+        )
+        tl.store(
+            target_local_max_ptr + logit_idx * target_local_max_stride + block_idx,
+            value,
+        )
+    else:
+        # Get local target max and summed exponentials.
+        target_logits = tl.load(
+            target_logits_ptr + logit_idx * target_logits_stride + block_offsets,
+            mask=mask,
+            other=float("-inf"),
+        ).to(tl.float32)
+        target_max, target_sumexp = _compute_block_max_and_sumexp(target_logits)
+        tl.store(
+            target_local_max_ptr + logit_idx * target_local_max_stride + block_idx,
+            target_max,
+        )
+        tl.store(
+            target_local_sumexp_ptr
+            + logit_idx * target_local_sumexp_stride
+            + block_idx,
+            target_sumexp,
+        )
+        if HAS_DRAFT_LOGITS:
+            # Get local draft max and summed exponentials.
+            draft_logits = tl.load(
+                draft_logits_ptr
+                + req_state_idx * draft_logits_stride_0
+                + draft_step_idx * draft_logits_stride_1
+                + block_offsets,
+                mask=mask,
+                other=float("-inf"),
+            ).to(tl.float32)
+            draft_max, draft_sumexp = _compute_block_max_and_sumexp(draft_logits)
+            tl.store(
+                draft_local_max_ptr + logit_idx * draft_local_max_stride + block_idx,
+                draft_max,
+            )
+            tl.store(
+                draft_local_sumexp_ptr
+                + logit_idx * draft_local_sumexp_stride
+                + block_idx,
+                draft_sumexp,
+            )
+
+
+@triton.jit
+def _rejection_kernel(
+    # [num_reqs, num_speculative_steps + 1]
+    sampled_ptr,
+    sampled_stride,
+    # [num_reqs]
+    rejected_steps_ptr,
+    # [num_reqs]
+    target_rejected_logsumexp_ptr,
+    # [num_reqs]
+    draft_rejected_logsumexp_ptr,
+    # [num_logits, V]
+    target_logits_ptr,
+    target_logits_stride,
+    # [num_logits, num_blocks]
+    target_local_argmax_ptr,
+    target_local_argmax_stride,
+    # [num_logits, num_blocks]
+    target_local_max_ptr,
+    target_local_max_stride,
+    # [num_logits, num_blocks]
+    target_local_sumexp_ptr,
+    target_local_sumexp_stride,
+    # [num_logits]
+    draft_sampled_ptr,
+    # [max_num_reqs, num_speculative_steps, V]
+    draft_logits_ptr,
+    draft_logits_stride_0,
+    draft_logits_stride_1,
+    # [num_logits, num_blocks]
+    draft_local_max_ptr,
+    draft_local_max_stride,
+    # [num_logits, num_blocks]
+    draft_local_sumexp_ptr,
+    draft_local_sumexp_stride,
+    # [num_reqs + 1]
+    cu_num_logits_ptr,
+    # [num_reqs]
+    idx_mapping_ptr,
+    # [max_num_reqs]
+    temp_ptr,
+    # [max_num_reqs]
+    seed_ptr,
+    # [num_logits]
+    pos_ptr,
+    # [num_speculative_steps]
+    synthetic_conditional_rates_ptr,
+    vocab_num_blocks,
+    PADDED_VOCAB_NUM_BLOCKS: tl.constexpr,
+    HAS_DRAFT_LOGITS: tl.constexpr,
+    SYNTHETIC_MODE: tl.constexpr,
+):
+    req_idx = tl.program_id(0)
+    req_state_idx = tl.load(idx_mapping_ptr + req_idx)
+    start_idx = tl.load(cu_num_logits_ptr + req_idx)
+    end_idx = tl.load(cu_num_logits_ptr + req_idx + 1)
+    num_tokens = end_idx - start_idx
+    seed = tl.load(seed_ptr + req_state_idx)
+    temp = tl.load(temp_ptr + req_state_idx).to(tl.float32)
+
+    rejected_step = 0
+    target_lse = 0.0
+    draft_lse = 0.0
+    accepted = True
+    for i in range(num_tokens - 1):
+        if accepted:
+            logit_idx = start_idx + i
+            draft_sampled = tl.load(draft_sampled_ptr + logit_idx + 1).to(tl.int64)
+            if temp == 0.0:
+                # Greedy sampling. Accept IFF draft matches target argmax.
+                # NOTE: Target argmax is stored directly so that resampling
+                # can be skipped upon rejection.
+                target_blocks = tl.arange(0, PADDED_VOCAB_NUM_BLOCKS)
+                target_blocks_mask = target_blocks < vocab_num_blocks
+                target_local_max = tl.load(
+                    target_local_max_ptr
+                    + logit_idx * target_local_max_stride
+                    + target_blocks,
+                    mask=target_blocks_mask,
+                    other=float("-inf"),
+                )
+                max_target_block_idx = tl.argmax(target_local_max, axis=0)
+                target_argmax = tl.load(
+                    target_local_argmax_ptr
+                    + logit_idx * target_local_argmax_stride
+                    + max_target_block_idx
+                ).to(tl.int64)
+
+                if SYNTHETIC_MODE:
+                    pos = tl.load(pos_ptr + logit_idx)
+                    u = tl_rand64(seed, pos, includes_zero=False)
+                    rate = tl.load(synthetic_conditional_rates_ptr + i)
+                    accepted &= u < rate
+                else:
+                    accepted &= target_argmax == draft_sampled
+                tl.store(
+                    sampled_ptr + req_idx * sampled_stride + i,
+                    draft_sampled if accepted else target_argmax,
+                )
+            else:
+                target_logit = tl.load(
+                    target_logits_ptr + logit_idx * target_logits_stride + draft_sampled
+                ).to(tl.float32)
+                target_lse = _compute_global_lse(
+                    target_local_max_ptr,
+                    target_local_max_stride,
+                    target_local_sumexp_ptr,
+                    target_local_sumexp_stride,
+                    logit_idx,
+                    vocab_num_blocks,
+                    PADDED_VOCAB_NUM_BLOCKS,
+                )
+                target_log_prob = target_logit - target_lse
+                pos = tl.load(pos_ptr + logit_idx)
+                u = tl_rand64(seed, pos, includes_zero=False)
+                if HAS_DRAFT_LOGITS:
+                    draft_logit = tl.load(
+                        draft_logits_ptr
+                        + req_state_idx * draft_logits_stride_0
+                        + i * draft_logits_stride_1
+                        + draft_sampled
+                    ).to(tl.float32)
+                    draft_lse = _compute_global_lse(
+                        draft_local_max_ptr,
+                        draft_local_max_stride,
+                        draft_local_sumexp_ptr,
+                        draft_local_sumexp_stride,
+                        logit_idx,
+                        vocab_num_blocks,
+                        PADDED_VOCAB_NUM_BLOCKS,
+                    )
+                    draft_log_prob = draft_logit - draft_lse
+                else:
+                    # One-hot draft: q(draft_token) = 1, log_q = 0.
+                    draft_log_prob = 0
+
+                if SYNTHETIC_MODE:
+                    rate = tl.load(synthetic_conditional_rates_ptr + i)
+                    accepted &= u < rate
+                else:
+                    # Probability ratio test: p(x) > u * q(x)
+                    # Equivalent log form: log_p(x) > log(u) + log_q(x)
+                    accepted &= target_log_prob > tl.log(u) + draft_log_prob
+                tl.store(sampled_ptr + req_idx * sampled_stride + i, draft_sampled)
+            rejected_step += accepted
+    tl.store(rejected_steps_ptr + req_idx, rejected_step)
+    tl.store(target_rejected_logsumexp_ptr + req_idx, target_lse)
+    tl.store(draft_rejected_logsumexp_ptr + req_idx, draft_lse)
+
+
+@triton.jit
+def _resample_kernel(
+    # [num_reqs, num_blocks]
+    resampled_local_argmax_ptr,
+    resampled_local_argmax_stride,
+    # [num_reqs, num_blocks]
+    resampled_local_max_ptr,
+    resampled_local_max_stride,
+    # [num_logits, V]
+    target_logits_ptr,
+    target_logits_stride,
+    # [num_reqs]
+    target_rejected_logsumexp_ptr,
+    # [max_num_reqs, num_speculative_steps, V]
+    draft_logits_ptr,
+    draft_logits_stride_0,
+    draft_logits_stride_1,
+    # [num_reqs]
+    draft_rejected_logsumexp_ptr,
+    # [num_reqs]
+    rejected_step_ptr,
+    # [num_reqs + 1]
+    cu_num_logits_ptr,
+    # [num_logits]
+    expanded_idx_mapping_ptr,
+    # [num_logits]
+    draft_sampled_ptr,
+    # [max_num_reqs]
+    temp_ptr,
+    # [max_num_reqs]
+    seed_ptr,
+    # [num_logits]
+    pos_ptr,
+    vocab_size,
+    BLOCK_SIZE: tl.constexpr,
+    HAS_DRAFT_LOGITS: tl.constexpr,
+    USE_FP64: tl.constexpr,
+):
+    req_idx = tl.program_id(0)
+    resample_idx = tl.load(rejected_step_ptr + req_idx)
+    start_idx = tl.load(cu_num_logits_ptr + req_idx)
+    end_idx = tl.load(cu_num_logits_ptr + req_idx + 1)
+    resample_token_idx = start_idx + resample_idx
+    req_state_idx = tl.load(expanded_idx_mapping_ptr + resample_token_idx)
+
+    temp = tl.load(temp_ptr + req_state_idx).to(tl.float32)
+    is_bonus = resample_token_idx == end_idx - 1
+    if temp == 0.0 and not is_bonus:
+        # Greedy + non-bonus token. No resampling needed because
+        # the target argmax is already in the sampled tensor.
+        return
+
+    block_idx = tl.program_id(1)
+    block = block_idx * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
+    mask = block < vocab_size
+    target_logits = tl.load(
+        target_logits_ptr + resample_token_idx * target_logits_stride + block,
+        mask=mask,
+        other=float("-inf"),
+    ).to(tl.float32)
+
+    # Compute the residual logits to resample the rejected token from.
+    if is_bonus:
+        # Bonus token (no rejections). Directly use the target logits.
+        residual_logits = target_logits
+    elif HAS_DRAFT_LOGITS:
+        draft_logits = tl.load(
+            draft_logits_ptr
+            + req_state_idx * draft_logits_stride_0
+            + resample_idx * draft_logits_stride_1
+            + block,
+            mask=mask,
+            other=float("-inf"),
+        ).to(tl.float32)
+        target_lse = tl.load(target_rejected_logsumexp_ptr + req_idx)
+        draft_lse = tl.load(draft_rejected_logsumexp_ptr + req_idx)
+        target_log_probs = target_logits - target_lse
+        draft_log_probs = draft_logits - draft_lse
+        # Compute the residual: max(p(x) - q(x), 0)
+        # Equivalent log form: log(max(exp(log_p(x)) - exp(log_q(x)), 0))
+        # The more numerically stable form is:
+        # log(max(exp(a) - exp(b), 0)) = a + log(max(1 - exp(b - a), 0))
+        ratio = tl.exp(draft_log_probs - target_log_probs)
+        residual_logits = tl.where(
+            ratio < 1.0,
+            target_log_probs + tl.log(1 - ratio),
+            float("-inf"),
+        ).to(tl.float32)
+    else:
+        # One-hot draft. The residual is just the target distribution with
+        # the rejected draft token probability zeroed out.
+        rejected_draft_token = tl.load(draft_sampled_ptr + resample_token_idx + 1)
+        residual_logits = tl.where(
+            block != rejected_draft_token,
+            target_logits,
+            float("-inf"),
+        ).to(tl.float32)
+
+    # Resample the rejected/bonus token.
+    value, idx = gumbel_block_argmax(
+        residual_logits,
+        block,
+        mask,
+        resample_token_idx,
+        expanded_idx_mapping_ptr,
+        temp_ptr,
+        seed_ptr,
+        pos_ptr,
+        None,  # processed_logits_ptr
+        0,  # processed_logits_stride
+        None,  # processed_logits_col_ptr
+        vocab_size,
+        APPLY_TEMPERATURE=False,
+        USE_FP64=USE_FP64,
+    )
+    token_id = block_idx * BLOCK_SIZE + idx
+    tl.store(
+        resampled_local_argmax_ptr
+        + req_idx * resampled_local_argmax_stride
+        + block_idx,
+        token_id,
+    )
+    tl.store(
+        resampled_local_max_ptr + req_idx * resampled_local_max_stride + block_idx,
+        value,
+    )
+
+
+@triton.jit
+def _insert_resampled_kernel(
+    # [num_reqs, num_speculative_steps + 1]
+    sampled_ptr,
+    sampled_stride,
+    # [num_reqs]
+    num_sampled_ptr,
+    # [num_reqs, num_blocks]
+    resampled_local_argmax_ptr,
+    resampled_local_argmax_stride,
+    # [num_reqs, num_blocks]
+    resampled_local_max_ptr,
+    resampled_local_max_stride,
+    resample_num_blocks,
+    # [num_reqs + 1]
+    cu_num_logits_ptr,
+    # [num_reqs]
+    expanded_idx_mapping_ptr,
+    # [max_num_reqs]
+    temp_ptr,
+    PADDED_RESAMPLE_NUM_BLOCKS: tl.constexpr,
+):
+    req_idx = tl.program_id(0)
+    num_sampled = tl.load(num_sampled_ptr + req_idx)
+    start_idx = tl.load(cu_num_logits_ptr + req_idx)
+    end_idx = tl.load(cu_num_logits_ptr + req_idx + 1)
+    resample_token_idx = start_idx + num_sampled
+    req_state_idx = tl.load(expanded_idx_mapping_ptr + resample_token_idx)
+
+    # Increment the number of sampled tokens.
+    tl.store(num_sampled_ptr + req_idx, num_sampled + 1)
+
+    temp = tl.load(temp_ptr + req_state_idx).to(tl.float32)
+    is_bonus = resample_token_idx == end_idx - 1
+    if temp == 0.0 and not is_bonus:
+        # Greedy + non-bonus token. The target argmax is already
+        # in the sampled tensor.
+        return
+
+    # Insert the resampled token.
+    block = tl.arange(0, PADDED_RESAMPLE_NUM_BLOCKS)
+    mask = block < resample_num_blocks
+    resampled_local_max = tl.load(
+        resampled_local_max_ptr + req_idx * resampled_local_max_stride + block,
+        mask=mask,
+        other=float("-inf"),
+    )
+    resampled_max_block_idx = tl.argmax(resampled_local_max, axis=0)
+    resampled = tl.load(
+        resampled_local_argmax_ptr
+        + req_idx * resampled_local_argmax_stride
+        + resampled_max_block_idx,
+    )
+    tl.store(
+        sampled_ptr + req_idx * sampled_stride + num_sampled,
+        resampled,
+    )
+
+
+def rejection_sample(
+    # [num_logits, V]
+    target_logits: torch.Tensor,
+    # [max_num_reqs, num_speculative_steps, V]
+    draft_logits: torch.Tensor | None,
+    # [num_logits]
+    draft_sampled: torch.Tensor,
+    # [num_reqs + 1]
+    cu_num_logits: torch.Tensor,
+    # [num_logits]
+    pos: torch.Tensor,
+    # [num_reqs]
+    idx_mapping: torch.Tensor,
+    # [num_logits]
+    expanded_idx_mapping: torch.Tensor,
+    # [num_logits]
+    expanded_local_pos: torch.Tensor,
+    # [max_num_reqs]
+    temperature: torch.Tensor,
+    # [max_num_reqs]
+    seed: torch.Tensor,
+    num_speculative_steps: int,
+    # [num_speculative_steps]
+    synthetic_conditional_rates: torch.Tensor | None = None,
+    use_fp64: bool = False,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    num_reqs = cu_num_logits.shape[0] - 1
+    num_logits, vocab_size = target_logits.shape
+    has_draft_logits = draft_logits is not None
+
+    if draft_logits is None:
+        # When draft_logits is None, create a dummy tensor so that Triton
+        # kernel signatures receive valid pointers/strides. The kernels
+        # will never read from it when HAS_DRAFT_LOGITS=False.
+        draft_logits = target_logits.new_empty(1, 1, 1)
+
+    # Compute the block-level logits stats, such as target argmax
+    # (for greedy requests), and target max + softmax exponential
+    # (for non-greedy requests).
+    VOCAB_BLOCK_SIZE = 8192
+    vocab_num_blocks = triton.cdiv(vocab_size, VOCAB_BLOCK_SIZE)
+    padded_vocab_num_blocks = triton.next_power_of_2(vocab_num_blocks)
+    target_local_argmax = target_logits.new_empty(
+        num_logits, vocab_num_blocks, dtype=torch.int64
+    )
+    target_local_max = target_logits.new_empty(
+        num_logits, vocab_num_blocks, dtype=torch.float32
+    )
+    target_local_sumexp = target_logits.new_empty(
+        num_logits, vocab_num_blocks, dtype=torch.float32
+    )
+    draft_local_max = target_logits.new_empty(
+        num_logits, vocab_num_blocks, dtype=torch.float32
+    )
+    draft_local_sumexp = target_logits.new_empty(
+        num_logits, vocab_num_blocks, dtype=torch.float32
+    )
+    _compute_block_stats_kernel[(num_logits, vocab_num_blocks)](
+        target_local_argmax,
+        target_local_argmax.stride(0),
+        target_local_max,
+        target_local_max.stride(0),
+        target_local_sumexp,
+        target_local_sumexp.stride(0),
+        draft_local_max,
+        draft_local_max.stride(0),
+        draft_local_sumexp,
+        draft_local_sumexp.stride(0),
+        target_logits,
+        target_logits.stride(0),
+        draft_logits,
+        draft_logits.stride(0),
+        draft_logits.stride(1),
+        expanded_idx_mapping,
+        expanded_local_pos,
+        temperature,
+        vocab_size,
+        num_speculative_steps,
+        BLOCK_SIZE=VOCAB_BLOCK_SIZE,
+        HAS_DRAFT_LOGITS=has_draft_logits,
+    )
+
+    # Sample up until the first rejected/bonus token, and store
+    # the step.
+    sampled = draft_sampled.new_empty(
+        num_reqs, num_speculative_steps + 1, dtype=torch.int64
+    )
+    num_sampled = sampled.new_empty(num_reqs, dtype=torch.int32)
+    target_rejected_logsumexp = target_logits.new_empty(num_reqs, dtype=torch.float32)
+    draft_rejected_logsumexp = target_logits.new_empty(num_reqs, dtype=torch.float32)
+    _rejection_kernel[(num_reqs,)](
+        sampled,
+        sampled.stride(0),
+        num_sampled,
+        target_rejected_logsumexp,
+        draft_rejected_logsumexp,
+        target_logits,
+        target_logits.stride(0),
+        target_local_argmax,
+        target_local_argmax.stride(0),
+        target_local_max,
+        target_local_max.stride(0),
+        target_local_sumexp,
+        target_local_sumexp.stride(0),
+        draft_sampled,
+        draft_logits,
+        draft_logits.stride(0),
+        draft_logits.stride(1),
+        draft_local_max,
+        draft_local_max.stride(0),
+        draft_local_sumexp,
+        draft_local_sumexp.stride(0),
+        cu_num_logits,
+        idx_mapping,
+        temperature,
+        seed,
+        pos,
+        synthetic_conditional_rates,
+        vocab_num_blocks,
+        PADDED_VOCAB_NUM_BLOCKS=padded_vocab_num_blocks,
+        HAS_DRAFT_LOGITS=has_draft_logits,
+        SYNTHETIC_MODE=synthetic_conditional_rates is not None,
+        num_warps=1,
+    )
+
+    # Resample the rejected/bonus tokens.
+    RESAMPLE_BLOCK_SIZE = 1024
+    resample_num_blocks = triton.cdiv(vocab_size, RESAMPLE_BLOCK_SIZE)
+    padded_resample_num_blocks = triton.next_power_of_2(resample_num_blocks)
+    resampled_local_argmax = target_logits.new_empty(
+        num_reqs, resample_num_blocks, dtype=torch.int64
+    )
+    resampled_local_max = target_logits.new_empty(
+        num_reqs,
+        resample_num_blocks,
+        dtype=torch.float64 if use_fp64 else torch.float32,
+    )
+    _resample_kernel[(num_reqs, resample_num_blocks)](
+        resampled_local_argmax,
+        resampled_local_argmax.stride(0),
+        resampled_local_max,
+        resampled_local_max.stride(0),
+        target_logits,
+        target_logits.stride(0),
+        target_rejected_logsumexp,
+        draft_logits,
+        draft_logits.stride(0),
+        draft_logits.stride(1),
+        draft_rejected_logsumexp,
+        num_sampled,
+        cu_num_logits,
+        expanded_idx_mapping,
+        draft_sampled,
+        temperature,
+        seed,
+        pos,
+        vocab_size,
+        BLOCK_SIZE=RESAMPLE_BLOCK_SIZE,
+        HAS_DRAFT_LOGITS=has_draft_logits,
+        USE_FP64=use_fp64,
+    )
+
+    # Insert the resampled tokens into the output sampled.
+    _insert_resampled_kernel[(num_reqs,)](
+        sampled,
+        sampled.stride(0),
+        num_sampled,
+        resampled_local_argmax,
+        resampled_local_argmax.stride(0),
+        resampled_local_max,
+        resampled_local_max.stride(0),
+        resample_num_blocks,
+        cu_num_logits,
+        expanded_idx_mapping,
+        temperature,
+        PADDED_RESAMPLE_NUM_BLOCKS=padded_resample_num_blocks,
+    )
+    return sampled, num_sampled
+
+
+########## FILE: speculator.py (224 lines) ##########
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+from abc import ABC, abstractmethod
+from typing import Any
+
+import torch
+import torch.nn as nn
+
+from vllm.config import VllmConfig, get_layers_from_vllm_config
+from vllm.config.compilation import CUDAGraphMode
+from vllm.model_executor.layers.attention_layer_base import AttentionLayerBase
+from vllm.v1.kv_cache_interface import KVCacheConfig
+from vllm.v1.worker.gpu.attn_utils import (
+    build_attn_metadata,
+    init_attn_backend,
+)
+from vllm.v1.worker.gpu.block_table import BlockTables
+from vllm.v1.worker.gpu.cudagraph_utils import (
+    AttentionStatePair,
+    BatchExecutionDescriptor,
+)
+from vllm.v1.worker.gpu.input_batch import InputBatch, InputBuffers
+from vllm.v1.worker.gpu.model_states.interface import ModelState
+
+
+class BaseSpeculator(ABC):
+    @abstractmethod
+    def init_cudagraph_manager(self, cudagraph_mode: CUDAGraphMode) -> None:
+        pass
+
+    @abstractmethod
+    def capture(
+        self,
+        attn_states: dict[BatchExecutionDescriptor, AttentionStatePair],
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def propose(
+        self,
+        input_batch: InputBatch,
+        attn_metadata: dict[str, Any],
+        slot_mappings: dict[str, torch.Tensor],
+        # [num_tokens, hidden_size]
+        last_hidden_states: torch.Tensor,
+        # num_layers x [num_tokens, hidden_size]
+        aux_hidden_states: list[torch.Tensor] | None,
+        # [num_reqs]
+        num_sampled: torch.Tensor,
+        # [num_reqs]
+        num_rejected: torch.Tensor,
+        # [max_num_reqs]
+        last_sampled: torch.Tensor,
+        # [max_num_reqs]
+        next_prefill_tokens: torch.Tensor,
+        # [max_num_reqs]
+        temperature: torch.Tensor,
+        # [max_num_reqs]
+        seeds: torch.Tensor,
+        num_tokens_across_dp: torch.Tensor | None = None,
+        dummy_run: bool = False,
+        skip_attn_for_dummy_run: bool = False,
+        mm_inputs: tuple[list[torch.Tensor], torch.Tensor] | None = None,
+        is_profile: bool = False,
+    ) -> torch.Tensor:
+        pass
+
+
+class DraftModelSpeculator(BaseSpeculator):
+    def __init__(self, vllm_config: VllmConfig, device: torch.device):
+        self.vllm_config = vllm_config
+        self.device = device
+
+        assert vllm_config.speculative_config is not None
+        self.speculative_config = vllm_config.speculative_config
+        self.method = self.speculative_config.method
+        self.num_speculative_steps = self.speculative_config.num_speculative_tokens
+        self.draft_model_config = self.speculative_config.draft_model_config
+
+        self.scheduler_config = vllm_config.scheduler_config
+        self.max_num_reqs = self.scheduler_config.max_num_seqs
+        self.max_num_tokens = self.scheduler_config.max_num_batched_tokens
+        self.max_model_len = vllm_config.model_config.max_model_len
+        self.draft_max_seq_len = self.max_model_len
+        # We need to get the hidden size from the draft model config because
+        # the draft model's hidden size can be different from the target model's
+        # hidden size (e.g., Llama 3.3 70B).
+        self.hidden_size = self.draft_model_config.get_hidden_size()
+        # Widen for HC-multiplexed residuals (e.g. DeepSeek V4 feeds the MTP
+        # draft the target's pre-hc_head (T, hc_mult * hidden_size) residual).
+        # Non-HC models default to hc_mult=1 and are unaffected.
+        hc_mult = getattr(self.draft_model_config.hf_config, "hc_mult", 1)
+        self.hidden_size = self.hidden_size * hc_mult
+        self.vocab_size = self.draft_model_config.get_vocab_size()
+        self.dtype = vllm_config.model_config.dtype
+        self.use_fp64_gumbel = vllm_config.model_config.use_fp64_gumbel
+
+        # DP configuration
+        self.dp_size = vllm_config.parallel_config.data_parallel_size
+        self.dp_rank = vllm_config.parallel_config.data_parallel_rank
+
+        self.input_buffers = InputBuffers(
+            max_num_reqs=self.max_num_reqs,
+            max_num_tokens=self.max_num_tokens,
+            device=device,
+        )
+        self.idx_mapping = torch.zeros(
+            self.max_num_reqs, dtype=torch.int32, device=device
+        )
+        self.temperature = torch.zeros(
+            self.max_num_reqs, dtype=torch.float32, device=device
+        )
+        self.seeds = torch.zeros(self.max_num_reqs, dtype=torch.int64, device=device)
+        self.draft_tokens = torch.zeros(
+            self.max_num_reqs,
+            self.num_speculative_steps,
+            dtype=torch.int64,
+            device=device,
+        )
+        self.arange = torch.arange(
+            self.max_num_reqs + 1, dtype=torch.int32, device="cpu"
+        )
+
+        self.draft_logits: torch.Tensor | None = None
+        if self.speculative_config.draft_sample_method == "probabilistic":
+            self.draft_logits = torch.zeros(
+                self.max_num_reqs,
+                self.num_speculative_steps,
+                self.vocab_size,
+                dtype=torch.float32,
+                device=device,
+            )
+
+    @abstractmethod
+    def load_draft_model(
+        self,
+        target_model: nn.Module,
+        target_attn_layer_names: set[str],
+    ) -> nn.Module:
+        pass
+
+    def load_model(self, target_model: nn.Module) -> None:
+        target_attn_layer_names = set(
+            get_layers_from_vllm_config(
+                self.vllm_config,
+                AttentionLayerBase,  # type: ignore[type-abstract]
+            ).keys()
+        )
+
+        self.model = self.load_draft_model(target_model, target_attn_layer_names)
+
+        all_attn_layers = set[str](
+            get_layers_from_vllm_config(
+                self.vllm_config,
+                AttentionLayerBase,  # type: ignore[type-abstract]
+            ).keys()
+        )
+        self.draft_attn_layer_names = all_attn_layers - target_attn_layer_names
+
+    def set_attn(
+        self,
+        model_state: ModelState,
+        kv_cache_config: KVCacheConfig,
+        block_tables: BlockTables,
+    ) -> None:
+        self.model_state = model_state
+        self.kv_cache_config = kv_cache_config
+        self.attn_groups, _, _ = init_attn_backend(
+            kv_cache_config,
+            self.vllm_config,
+            self.device,
+            active_layer_names=self.draft_attn_layer_names,
+        )
+        self.block_tables = block_tables
+
+    def _build_draft_attn_metadata(
+        self,
+        num_reqs: int,
+        num_reqs_padded: int,
+        num_tokens_padded: int,
+    ) -> dict[str, Any] | None:
+        query_start_loc_cpu = torch.clamp(
+            self.arange[: num_reqs_padded + 1], max=num_reqs
+        )
+        block_tables = [
+            x[:num_reqs_padded] for x in self.block_tables.input_block_tables
+        ]
+        slot_mappings = self.block_tables.slot_mappings[:, :num_tokens_padded]
+        attn_metadata = build_attn_metadata(
+            attn_groups=self.attn_groups,
+            num_reqs=num_reqs_padded,
+            num_tokens=num_tokens_padded,
+            query_start_loc_gpu=self.input_buffers.query_start_loc[
+                : num_reqs_padded + 1
+            ],
+            query_start_loc_cpu=query_start_loc_cpu,
+            max_query_len=1,
+            seq_lens=self.input_buffers.seq_lens[:num_reqs_padded],
+            max_seq_len=self.draft_max_seq_len,
+            block_tables=block_tables,
+            slot_mappings=slot_mappings,
+            kv_cache_config=self.kv_cache_config,
+        )
+        return attn_metadata
+
+    def _copy_request_inputs(
+        self,
+        num_reqs: int,
+        # [num_reqs]
+        idx_mapping: torch.Tensor,
+        # [max_num_reqs]
+        temperature: torch.Tensor,
+        # [max_num_reqs]
+        seeds: torch.Tensor,
+    ) -> None:
+        # Copy temperature, seeds, and idx mapping to the pre-allocated buffers.
+        # NOTE(woosuk): For draft sampling, we only consider the temperature
+        # and ignore the other sampling parameters such as top_k and top_p,
+        # for simplicity and performance.
+        # While this may slightly degrade the acceptance rate, it does not
+        # affect the output distribution after rejection sampling.
+        self.temperature.copy_(temperature)
+        self.seeds.copy_(seeds)
+        self.idx_mapping[:num_reqs].copy_(idx_mapping)
+
+
+########## FILE: utils.py (47 lines) ##########
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+import numpy as np
+import torch
+
+from vllm.v1.outputs import DraftTokenIds
+from vllm.v1.worker.gpu.async_utils import async_copy_to_np
+from vllm.v1.worker.gpu.input_batch import InputBatch
+
+
+class DraftTokensHandler:
+    def __init__(self, device: torch.device | None = None):
+        self.device = device
+        self.copy_stream = torch.cuda.Stream(device)
+        self.copy_event = torch.cuda.Event()
+
+        self.req_ids: list[str] = []
+        self.draft_tokens_np: np.ndarray | None = None
+        self.num_draft_tokens: int = 0
+
+    def set_draft_tokens(
+        self, input_batch: InputBatch, draft_tokens: torch.Tensor
+    ) -> None:
+        self.req_ids = input_batch.req_ids
+        self.num_draft_tokens = draft_tokens.shape[1]
+        if not input_batch.has_structured_output_reqs:
+            # No draft token validation needs to be performed by
+            # the scheduler for this batch.
+            self.draft_tokens_np = None
+            return
+
+        # For spec decoding + structured outputs, we must transfer the
+        # draft tokens back to the scheduler for grammar validation.
+        current_stream = torch.cuda.current_stream(self.device)
+        self.copy_stream.wait_stream(current_stream)
+        with torch.cuda.stream(self.copy_stream):
+            self.draft_tokens_np = async_copy_to_np(draft_tokens)
+            self.copy_event.record()
+
+    def get_draft_tokens(self) -> DraftTokenIds | None:
+        if self.draft_tokens_np is not None:
+            self.copy_event.synchronize()
+            draft_token_ids = self.draft_tokens_np.tolist()
+        else:
+            # This case only happens when async scheduling is disabled.
+            draft_token_ids = [[-1] * self.num_draft_tokens for _ in self.req_ids]
+        return DraftTokenIds(self.req_ids, draft_token_ids)

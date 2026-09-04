@@ -1,0 +1,249 @@
+{
+  "target": "meta-llama/Llama-3.1-8B-Instruct",
+  "n": 10,
+  "maxtok": 128,
+  "repeats": 3,
+  "fixed_depths": [
+    5,
+    6,
+    7,
+    8
+  ],
+  "offline": {
+    "entropy": {
+      "thr": 5.0,
+      "gain_pct": 0.47
+    },
+    "cumprob": {
+      "thr": 0.05,
+      "gain_pct": 2.14
+    },
+    "hidden": {
+      "thr": 0.2,
+      "gain_pct": -8.04
+    }
+  },
+  "fixed": {
+    "5": {
+      "humaneval": [
+        142.64,
+        138.69,
+        140.36
+      ],
+      "gsm8k": [
+        135.66,
+        136.51,
+        134.55
+      ],
+      "mt_bench": [
+        113.73,
+        107.36,
+        107.22
+      ]
+    },
+    "6": {
+      "humaneval": [
+        147.0,
+        129.22,
+        135.15
+      ],
+      "gsm8k": [
+        135.53,
+        124.83,
+        124.11
+      ],
+      "mt_bench": [
+        96.96,
+        96.57,
+        97.84
+      ]
+    },
+    "7": {
+      "humaneval": [
+        137.93,
+        138.9,
+        138.4
+      ],
+      "gsm8k": [
+        129.47,
+        129.27,
+        128.81
+      ],
+      "mt_bench": [
+        96.77,
+        95.41,
+        95.76
+      ]
+    },
+    "8": {
+      "humaneval": [
+        136.09,
+        136.54,
+        134.62
+      ],
+      "gsm8k": [
+        123.68,
+        126.31,
+        126.89
+      ],
+      "mt_bench": [
+        92.59,
+        93.87,
+        92.97
+      ]
+    }
+  },
+  "policies": {
+    "entropy": {
+      "humaneval": [
+        138.93,
+        136.7,
+        137.62
+      ],
+      "gsm8k": [
+        128.8,
+        130.64,
+        129.6
+      ],
+      "mt_bench": [
+        100.58,
+        100.11,
+        102.21
+      ]
+    },
+    "cumprob": {
+      "humaneval": [
+        142.52,
+        139.23,
+        140.21
+      ],
+      "gsm8k": [
+        132.52,
+        132.39,
+        131.51
+      ],
+      "mt_bench": [
+        106.19,
+        105.95,
+        105.59
+      ]
+    },
+    "hidden": {
+      "humaneval": [
+        121.0,
+        119.31,
+        122.32
+      ],
+      "gsm8k": [
+        114.99,
+        115.36,
+        116.38
+      ],
+      "mt_bench": [
+        84.59,
+        85.67,
+        84.83
+      ]
+    }
+  },
+  "policy_mean_depth": {
+    "entropy": {
+      "mean": 5.92,
+      "std": 1.9
+    },
+    "cumprob": {
+      "mean": 5.49,
+      "std": 1.8
+    },
+    "hidden": {
+      "mean": 6.95,
+      "std": 0.25
+    }
+  },
+  "summary": {
+    "entropy": {
+      "offline_gain_pct": 0.47,
+      "heldout_gains": [
+        [
+          "humaneval",
+          -2.0,
+          0.76,
+          5
+        ],
+        [
+          "gsm8k",
+          -4.35,
+          0.47,
+          5
+        ],
+        [
+          "mt_bench",
+          -7.74,
+          1.67,
+          5
+        ]
+      ],
+      "heldout_mean_gain_pct": -4.7,
+      "realized_depth": {
+        "mean": 5.92,
+        "std": 1.9
+      }
+    },
+    "cumprob": {
+      "offline_gain_pct": 2.14,
+      "heldout_gains": [
+        [
+          "humaneval",
+          0.06,
+          0.87,
+          5
+        ],
+        [
+          "gsm8k",
+          -2.53,
+          0.39,
+          5
+        ],
+        [
+          "mt_bench",
+          -3.22,
+          1.61,
+          5
+        ]
+      ],
+      "heldout_mean_gain_pct": -1.9,
+      "realized_depth": {
+        "mean": 5.49,
+        "std": 1.8
+      }
+    },
+    "hidden": {
+      "offline_gain_pct": -8.04,
+      "heldout_gains": [
+        [
+          "humaneval",
+          -14.01,
+          0.84,
+          5
+        ],
+        [
+          "gsm8k",
+          -14.75,
+          0.42,
+          5
+        ],
+        [
+          "mt_bench",
+          -22.3,
+          1.62,
+          5
+        ]
+      ],
+      "heldout_mean_gain_pct": -17.02,
+      "realized_depth": {
+        "mean": 6.95,
+        "std": 0.25
+      }
+    }
+  }
+}

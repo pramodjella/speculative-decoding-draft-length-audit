@@ -1,0 +1,5 @@
+feature,auc_allpos,auc_pos0
+draft_entropy,0.4161,0.3940
+top1_margin,0.5728,0.5867
+position,0.5787,0.5000
+prev_acc_ema,0.6699,nan

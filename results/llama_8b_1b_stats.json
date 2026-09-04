@@ -1,0 +1,178 @@
+{
+  "target": "unsloth/Meta-Llama-3.1-8B-Instruct",
+  "draft": "unsloth/Llama-3.2-1B-Instruct",
+  "vocab_match": true,
+  "batch_size": 1,
+  "max_new_tokens": 96,
+  "n_prompts": 24,
+  "rows": [
+    {
+      "workload": "humaneval",
+      "method": "ours_fixed1",
+      "K": 1,
+      "tok_per_s": 31.0,
+      "speedup_vs_generate": 0.897,
+      "acceptance_rate": 0.888
+    },
+    {
+      "workload": "humaneval",
+      "method": "ours_fixed2",
+      "K": 2,
+      "tok_per_s": 35.5,
+      "speedup_vs_generate": 1.024,
+      "acceptance_rate": 0.848
+    },
+    {
+      "workload": "humaneval",
+      "method": "ours_fixed4",
+      "K": 4,
+      "tok_per_s": 38.4,
+      "speedup_vs_generate": 1.108,
+      "acceptance_rate": 0.767
+    },
+    {
+      "workload": "humaneval",
+      "method": "ours_fixed8",
+      "K": 8,
+      "tok_per_s": 36.6,
+      "speedup_vs_generate": 1.056,
+      "acceptance_rate": 0.63
+    },
+    {
+      "workload": "humaneval",
+      "method": "hf_assisted_K2",
+      "K": 2,
+      "tok_per_s": 40.0,
+      "speedup_vs_generate": 1.157,
+      "acceptance_rate": null
+    },
+    {
+      "workload": "humaneval",
+      "method": "hf_assisted_K4",
+      "K": 4,
+      "tok_per_s": 39.9,
+      "speedup_vs_generate": 1.151,
+      "acceptance_rate": null
+    },
+    {
+      "workload": "humaneval",
+      "method": "plain_generate",
+      "K": 0,
+      "tok_per_s": 34.6,
+      "speedup_vs_generate": 1.0,
+      "acceptance_rate": null
+    },
+    {
+      "workload": "gsm8k",
+      "method": "ours_fixed1",
+      "K": 1,
+      "tok_per_s": 31.0,
+      "speedup_vs_generate": 0.888,
+      "acceptance_rate": 0.876
+    },
+    {
+      "workload": "gsm8k",
+      "method": "ours_fixed2",
+      "K": 2,
+      "tok_per_s": 34.6,
+      "speedup_vs_generate": 0.991,
+      "acceptance_rate": 0.81
+    },
+    {
+      "workload": "gsm8k",
+      "method": "ours_fixed4",
+      "K": 4,
+      "tok_per_s": 36.2,
+      "speedup_vs_generate": 1.037,
+      "acceptance_rate": 0.708
+    },
+    {
+      "workload": "gsm8k",
+      "method": "ours_fixed8",
+      "K": 8,
+      "tok_per_s": 34.2,
+      "speedup_vs_generate": 0.981,
+      "acceptance_rate": 0.579
+    },
+    {
+      "workload": "gsm8k",
+      "method": "hf_assisted_K2",
+      "K": 2,
+      "tok_per_s": 33.3,
+      "speedup_vs_generate": 0.953,
+      "acceptance_rate": null
+    },
+    {
+      "workload": "gsm8k",
+      "method": "hf_assisted_K4",
+      "K": 4,
+      "tok_per_s": 33.2,
+      "speedup_vs_generate": 0.953,
+      "acceptance_rate": null
+    },
+    {
+      "workload": "gsm8k",
+      "method": "plain_generate",
+      "K": 0,
+      "tok_per_s": 34.9,
+      "speedup_vs_generate": 1.0,
+      "acceptance_rate": null
+    },
+    {
+      "workload": "mt_bench",
+      "method": "ours_fixed1",
+      "K": 1,
+      "tok_per_s": 29.2,
+      "speedup_vs_generate": 0.838,
+      "acceptance_rate": 0.767
+    },
+    {
+      "workload": "mt_bench",
+      "method": "ours_fixed2",
+      "K": 2,
+      "tok_per_s": 31.1,
+      "speedup_vs_generate": 0.893,
+      "acceptance_rate": 0.673
+    },
+    {
+      "workload": "mt_bench",
+      "method": "ours_fixed4",
+      "K": 4,
+      "tok_per_s": 30.5,
+      "speedup_vs_generate": 0.876,
+      "acceptance_rate": 0.55
+    },
+    {
+      "workload": "mt_bench",
+      "method": "ours_fixed8",
+      "K": 8,
+      "tok_per_s": 24.6,
+      "speedup_vs_generate": 0.707,
+      "acceptance_rate": 0.379
+    },
+    {
+      "workload": "mt_bench",
+      "method": "hf_assisted_K2",
+      "K": 2,
+      "tok_per_s": 33.1,
+      "speedup_vs_generate": 0.949,
+      "acceptance_rate": null
+    },
+    {
+      "workload": "mt_bench",
+      "method": "hf_assisted_K4",
+      "K": 4,
+      "tok_per_s": 33.0,
+      "speedup_vs_generate": 0.947,
+      "acceptance_rate": null
+    },
+    {
+      "workload": "mt_bench",
+      "method": "plain_generate",
+      "K": 0,
+      "tok_per_s": 34.8,
+      "speedup_vs_generate": 1.0,
+      "acceptance_rate": null
+    }
+  ]
+}

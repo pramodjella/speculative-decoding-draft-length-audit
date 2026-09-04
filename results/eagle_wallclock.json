@@ -1,0 +1,83 @@
+{
+  "target": "meta-llama/Llama-3.1-8B-Instruct",
+  "n": 10,
+  "maxtok": 128,
+  "MAXD": 7,
+  "seed_probe_corr": 0.26343738016560947,
+  "fixed": {
+    "2": {
+      "humaneval": 117.18,
+      "gsm8k": 126.52,
+      "mt_bench": 129.02
+    },
+    "3": {
+      "humaneval": 136.99,
+      "gsm8k": 148.52,
+      "mt_bench": 140.52
+    },
+    "4": {
+      "humaneval": 152.8,
+      "gsm8k": 148.02,
+      "mt_bench": 150.96
+    },
+    "5": {
+      "humaneval": 159.07,
+      "gsm8k": 147.65,
+      "mt_bench": 160.38
+    },
+    "6": {
+      "humaneval": 184.21,
+      "gsm8k": 157.9,
+      "mt_bench": 158.48
+    },
+    "7": {
+      "humaneval": 177.53,
+      "gsm8k": 158.47,
+      "mt_bench": 164.36
+    },
+    "8": {
+      "humaneval": 181.24,
+      "gsm8k": 147.63,
+      "mt_bench": 155.85
+    }
+  },
+  "adaptive": {
+    "humaneval": 173.78,
+    "gsm8k": 154.63,
+    "mt_bench": 155.41
+  },
+  "adaptive_mean_depth": {
+    "humaneval": {
+      "mean": null,
+      "std": null
+    },
+    "gsm8k": {
+      "mean": null,
+      "std": null
+    },
+    "mt_bench": {
+      "mean": null,
+      "std": null
+    }
+  },
+  "summary": {
+    "humaneval": {
+      "best_fixed_depth": 6,
+      "best_fixed_tps": 184.21,
+      "adaptive_tps": 173.78,
+      "gain_pct": -5.66
+    },
+    "gsm8k": {
+      "best_fixed_depth": 7,
+      "best_fixed_tps": 158.47,
+      "adaptive_tps": 154.63,
+      "gain_pct": -2.42
+    },
+    "mt_bench": {
+      "best_fixed_depth": 7,
+      "best_fixed_tps": 164.36,
+      "adaptive_tps": 155.41,
+      "gain_pct": -5.45
+    }
+  }
+}

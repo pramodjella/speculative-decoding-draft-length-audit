@@ -1,0 +1,31 @@
+# model weights and external repo clones (multi-GB, re-downloadable)
+models/
+dflash_repo/
+checkpoints/
+.venv/
+
+# large capture parquets — regenerable via modal_eagle3_hidden_full_capture.py,
+# archived on the Modal volume spec-dec-m5-results (eagle3_hidden_full/)
+results/eagle3_hidden_full/*.parquet
+
+# stray downloads / stale build artifacts
+paper/downloads/
+project_to_upload.zip
+
+# python / tooling noise
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+scratch/
+*.log
+.cache/
+data/*.bin
+graphify-out/
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.synctex.gz
+paper/*.fls
+paper/*.fdb_latexmk
+paper/arxiv_submission.tar.gz
+paper/paper.docx

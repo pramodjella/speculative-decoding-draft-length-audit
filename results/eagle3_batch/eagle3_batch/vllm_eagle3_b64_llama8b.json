@@ -1,0 +1,172 @@
+{
+  "target": "meta-llama/Llama-3.1-8B-Instruct",
+  "eagle_head": "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B",
+  "batch": 64,
+  "results": [
+    {
+      "method": "baseline",
+      "K": 0,
+      "workload": "humaneval",
+      "batch": 64,
+      "tokens": 6144,
+      "secs": 1.119,
+      "tok_per_s": 5490.15,
+      "net_speedup": 1.0,
+      "accepted_tokens_per_step": null
+    },
+    {
+      "method": "baseline",
+      "K": 0,
+      "workload": "gsm8k",
+      "batch": 64,
+      "tokens": 6144,
+      "secs": 1.04,
+      "tok_per_s": 5906.54,
+      "net_speedup": 1.0,
+      "accepted_tokens_per_step": null
+    },
+    {
+      "method": "baseline",
+      "K": 0,
+      "workload": "mt_bench",
+      "batch": 64,
+      "tokens": 5120,
+      "secs": 1.008,
+      "tok_per_s": 5076.85,
+      "net_speedup": 1.0,
+      "accepted_tokens_per_step": null
+    },
+    {
+      "method": "eagle3",
+      "K": 1,
+      "workload": "humaneval",
+      "batch": 64,
+      "tokens": 6144,
+      "secs": 1.039,
+      "tok_per_s": 5910.72,
+      "net_speedup": 1.077,
+      "accepted_tokens_per_step": 1.4235
+    },
+    {
+      "method": "eagle3",
+      "K": 1,
+      "workload": "gsm8k",
+      "batch": 64,
+      "tokens": 6144,
+      "secs": 0.902,
+      "tok_per_s": 6811.61,
+      "net_speedup": 1.153,
+      "accepted_tokens_per_step": 1.4409
+    },
+    {
+      "method": "eagle3",
+      "K": 1,
+      "workload": "mt_bench",
+      "batch": 64,
+      "tokens": 5120,
+      "secs": 0.914,
+      "tok_per_s": 5602.0,
+      "net_speedup": 1.103,
+      "accepted_tokens_per_step": 1.4231
+    },
+    {
+      "method": "eagle3",
+      "K": 2,
+      "workload": "humaneval",
+      "batch": 64,
+      "tokens": 6144,
+      "secs": 1.097,
+      "tok_per_s": 5602.48,
+      "net_speedup": 1.02,
+      "accepted_tokens_per_step": 1.6112
+    },
+    {
+      "method": "eagle3",
+      "K": 2,
+      "workload": "gsm8k",
+      "batch": 64,
+      "tokens": 6144,
+      "secs": 0.945,
+      "tok_per_s": 6502.34,
+      "net_speedup": 1.101,
+      "accepted_tokens_per_step": 1.6346
+    },
+    {
+      "method": "eagle3",
+      "K": 2,
+      "workload": "mt_bench",
+      "batch": 64,
+      "tokens": 5120,
+      "secs": 0.963,
+      "tok_per_s": 5314.47,
+      "net_speedup": 1.047,
+      "accepted_tokens_per_step": 1.6025
+    },
+    {
+      "method": "eagle3",
+      "K": 3,
+      "workload": "humaneval",
+      "batch": 64,
+      "tokens": 6144,
+      "secs": 1.165,
+      "tok_per_s": 5273.42,
+      "net_speedup": 0.961,
+      "accepted_tokens_per_step": 1.6771
+    },
+    {
+      "method": "eagle3",
+      "K": 3,
+      "workload": "gsm8k",
+      "batch": 64,
+      "tokens": 6144,
+      "secs": 0.999,
+      "tok_per_s": 6147.52,
+      "net_speedup": 1.041,
+      "accepted_tokens_per_step": 1.718
+    },
+    {
+      "method": "eagle3",
+      "K": 3,
+      "workload": "mt_bench",
+      "batch": 64,
+      "tokens": 5120,
+      "secs": 1.005,
+      "tok_per_s": 5096.87,
+      "net_speedup": 1.004,
+      "accepted_tokens_per_step": 1.6802
+    },
+    {
+      "method": "eagle3",
+      "K": 4,
+      "workload": "humaneval",
+      "batch": 64,
+      "tokens": 6144,
+      "secs": 1.275,
+      "tok_per_s": 4818.04,
+      "net_speedup": 0.878,
+      "accepted_tokens_per_step": 1.7088
+    },
+    {
+      "method": "eagle3",
+      "K": 4,
+      "workload": "gsm8k",
+      "batch": 64,
+      "tokens": 6144,
+      "secs": 1.109,
+      "tok_per_s": 5539.63,
+      "net_speedup": 0.938,
+      "accepted_tokens_per_step": 1.7625
+    },
+    {
+      "method": "eagle3",
+      "K": 4,
+      "workload": "mt_bench",
+      "batch": 64,
+      "tokens": 5120,
+      "secs": 1.112,
+      "tok_per_s": 4602.53,
+      "net_speedup": 0.907,
+      "accepted_tokens_per_step": 1.7196
+    }
+  ]
+}

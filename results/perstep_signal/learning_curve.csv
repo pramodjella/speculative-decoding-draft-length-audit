@@ -1,0 +1,6 @@
+train_gens_pct,labeled_rows,recovered_pct_mean,recovered_pct_std
+15,1117,5.05,5.42
+30,2233,9.78,5.57
+50,3731,8.56,4.98
+70,5222,8.68,3.94
+100,7452,9.83,4.51

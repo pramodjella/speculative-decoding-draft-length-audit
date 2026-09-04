@@ -1,0 +1,74 @@
+{
+  "target": "meta-llama/Llama-3.1-8B-Instruct",
+  "eagle_head": "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B",
+  "model": "llama8b",
+  "batch": 1,
+  "ctx_len": 8192,
+  "results": [
+    {
+      "method": "baseline",
+      "K": 0,
+      "workload": "quality",
+      "model": "llama8b",
+      "batch": 1,
+      "ctx_len": 8192,
+      "tokens": 2048,
+      "secs": 13.991,
+      "tok_per_s": 146.38,
+      "net_speedup": 1.0,
+      "accepted_tokens_per_step": null
+    },
+    {
+      "method": "eagle3_patched",
+      "K": 1,
+      "workload": "quality",
+      "model": "llama8b",
+      "batch": 1,
+      "ctx_len": 8192,
+      "tokens": 2048,
+      "secs": 14.157,
+      "tok_per_s": 144.67,
+      "net_speedup": 0.988,
+      "accepted_tokens_per_step": 1.0876
+    },
+    {
+      "method": "eagle3_patched",
+      "K": 2,
+      "workload": "quality",
+      "model": "llama8b",
+      "batch": 1,
+      "ctx_len": 8192,
+      "tokens": 2048,
+      "secs": 14.889,
+      "tok_per_s": 137.55,
+      "net_speedup": 0.94,
+      "accepted_tokens_per_step": 1.0902
+    },
+    {
+      "method": "eagle3_patched",
+      "K": 3,
+      "workload": "quality",
+      "model": "llama8b",
+      "batch": 1,
+      "ctx_len": 8192,
+      "tokens": 2048,
+      "secs": 15.486,
+      "tok_per_s": 132.25,
+      "net_speedup": 0.903,
+      "accepted_tokens_per_step": 1.0902
+    },
+    {
+      "method": "eagle3_patched",
+      "K": 4,
+      "workload": "quality",
+      "model": "llama8b",
+      "batch": 1,
+      "ctx_len": 8192,
+      "tokens": 2048,
+      "secs": 16.367,
+      "tok_per_s": 125.13,
+      "net_speedup": 0.855,
+      "accepted_tokens_per_step": 1.0902
+    }
+  ]
+}
