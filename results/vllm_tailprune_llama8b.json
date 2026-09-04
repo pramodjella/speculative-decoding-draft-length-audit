@@ -1,0 +1,314 @@
+{
+  "model": "llama8b",
+  "target": "meta-llama/Llama-3.1-8B-Instruct",
+  "n": 10,
+  "maxtok": 128,
+  "cycles": 4,
+  "KMAX": 7,
+  "tps": {
+    "humaneval": {
+      "fixed2": [
+        69.01,
+        68.68,
+        68.28,
+        68.75
+      ],
+      "fixed3": [
+        69.58,
+        69.19,
+        68.66,
+        68.75
+      ],
+      "fixed4": [
+        69.18,
+        68.96,
+        69.29,
+        67.45
+      ],
+      "fixed7": [
+        69.14,
+        67.83,
+        68.21,
+        68.51
+      ],
+      "cum0.05": [
+        68.92,
+        68.42,
+        68.59,
+        69.02
+      ],
+      "cum0.2": [
+        68.73,
+        68.62,
+        68.71,
+        68.4
+      ]
+    },
+    "gsm8k": {
+      "fixed2": [
+        66.66,
+        66.82,
+        66.87,
+        66.98
+      ],
+      "fixed3": [
+        63.75,
+        66.73,
+        66.98,
+        64.53
+      ],
+      "fixed4": [
+        67.53,
+        67.08,
+        67.22,
+        65.72
+      ],
+      "fixed7": [
+        67.64,
+        66.41,
+        66.84,
+        66.72
+      ],
+      "cum0.05": [
+        66.56,
+        67.08,
+        66.84,
+        67.25
+      ],
+      "cum0.2": [
+        66.54,
+        66.55,
+        66.8,
+        66.64
+      ]
+    },
+    "mt_bench": {
+      "fixed2": [
+        47.28,
+        47.09,
+        46.95,
+        47.04
+      ],
+      "fixed3": [
+        47.12,
+        47.24,
+        47.16,
+        46.56
+      ],
+      "fixed4": [
+        47.45,
+        47.3,
+        47.12,
+        46.8
+      ],
+      "fixed7": [
+        47.39,
+        47.03,
+        47.02,
+        47.47
+      ],
+      "cum0.05": [
+        46.93,
+        47.08,
+        47.11,
+        47.31
+      ],
+      "cum0.2": [
+        47.2,
+        47.3,
+        47.01,
+        47.34
+      ]
+    }
+  },
+  "mean_drafted": {
+    "fixed2": null,
+    "fixed3": null,
+    "fixed4": null,
+    "fixed7": null,
+    "cum0.05": null,
+    "cum0.2": null
+  },
+  "summary": {
+    "humaneval": {
+      "fixed_means": {
+        "fixed2": 68.68,
+        "fixed3": 69.04,
+        "fixed4": 68.72,
+        "fixed7": 68.42
+      },
+      "cum_arms": {
+        "cum0.05": {
+          "vs_each_fixed": {
+            "fixed2": {
+              "mean_gain_pct": 0.08,
+              "se": 0.18
+            },
+            "fixed3": {
+              "mean_gain_pct": -0.44,
+              "se": 0.31
+            },
+            "fixed4": {
+              "mean_gain_pct": 0.04,
+              "se": 0.67
+            },
+            "fixed7": {
+              "mean_gain_pct": 0.46,
+              "se": 0.23
+            }
+          },
+          "vs_strongest_fixed": {
+            "config": "fixed3",
+            "mean_gain_pct": -0.44,
+            "se": 0.31
+          }
+        },
+        "cum0.2": {
+          "vs_each_fixed": {
+            "fixed2": {
+              "mean_gain_pct": -0.09,
+              "se": 0.22
+            },
+            "fixed3": {
+              "mean_gain_pct": -0.62,
+              "se": 0.24
+            },
+            "fixed4": {
+              "mean_gain_pct": -0.14,
+              "se": 0.45
+            },
+            "fixed7": {
+              "mean_gain_pct": 0.29,
+              "se": 0.35
+            }
+          },
+          "vs_strongest_fixed": {
+            "config": "fixed3",
+            "mean_gain_pct": -0.62,
+            "se": 0.24
+          }
+        }
+      }
+    },
+    "gsm8k": {
+      "fixed_means": {
+        "fixed2": 66.83,
+        "fixed3": 65.5,
+        "fixed4": 66.89,
+        "fixed7": 66.9
+      },
+      "cum_arms": {
+        "cum0.05": {
+          "vs_each_fixed": {
+            "fixed2": {
+              "mean_gain_pct": 0.15,
+              "se": 0.12
+            },
+            "fixed3": {
+              "mean_gain_pct": 2.23,
+              "se": 1.05
+            },
+            "fixed4": {
+              "mean_gain_pct": 0.08,
+              "se": 0.7
+            },
+            "fixed7": {
+              "mean_gain_pct": 0.05,
+              "se": 0.51
+            }
+          },
+          "vs_strongest_fixed": {
+            "config": "fixed7",
+            "mean_gain_pct": 0.05,
+            "se": 0.51
+          }
+        },
+        "cum0.2": {
+          "vs_each_fixed": {
+            "fixed2": {
+              "mean_gain_pct": -0.3,
+              "se": 0.08
+            },
+            "fixed3": {
+              "mean_gain_pct": 1.78,
+              "se": 1.04
+            },
+            "fixed4": {
+              "mean_gain_pct": -0.37,
+              "se": 0.53
+            },
+            "fixed7": {
+              "mean_gain_pct": -0.4,
+              "se": 0.36
+            }
+          },
+          "vs_strongest_fixed": {
+            "config": "fixed7",
+            "mean_gain_pct": -0.4,
+            "se": 0.36
+          }
+        }
+      }
+    },
+    "mt_bench": {
+      "fixed_means": {
+        "fixed2": 47.09,
+        "fixed3": 47.02,
+        "fixed4": 47.17,
+        "fixed7": 47.23
+      },
+      "cum_arms": {
+        "cum0.05": {
+          "vs_each_fixed": {
+            "fixed2": {
+              "mean_gain_pct": 0.04,
+              "se": 0.25
+            },
+            "fixed3": {
+              "mean_gain_pct": 0.19,
+              "se": 0.41
+            },
+            "fixed4": {
+              "mean_gain_pct": -0.12,
+              "se": 0.4
+            },
+            "fixed7": {
+              "mean_gain_pct": -0.25,
+              "se": 0.23
+            }
+          },
+          "vs_strongest_fixed": {
+            "config": "fixed7",
+            "mean_gain_pct": -0.25,
+            "se": 0.23
+          }
+        },
+        "cum0.2": {
+          "vs_each_fixed": {
+            "fixed2": {
+              "mean_gain_pct": 0.26,
+              "se": 0.15
+            },
+            "fixed3": {
+              "mean_gain_pct": 0.41,
+              "se": 0.38
+            },
+            "fixed4": {
+              "mean_gain_pct": 0.1,
+              "se": 0.32
+            },
+            "fixed7": {
+              "mean_gain_pct": -0.03,
+              "se": 0.19
+            }
+          },
+          "vs_strongest_fixed": {
+            "config": "fixed7",
+            "mean_gain_pct": -0.03,
+            "se": 0.19
+          }
+        }
+      }
+    }
+  }
+}

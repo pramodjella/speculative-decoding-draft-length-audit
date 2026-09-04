@@ -1,0 +1,28 @@
+{
+  "llama8b": {
+    "model": "llama8b",
+    "real": {
+      "deployable_pct": [
+        16.78,
+        2.65
+      ],
+      "ceiling_pct": [
+        18.15,
+        2.56
+      ]
+    },
+    "shuffled": {
+      "deployable_pct": [
+        -5.62,
+        1.36
+      ],
+      "ceiling_pct": [
+        -3.38,
+        1.33
+      ],
+      "n_folds": 8
+    },
+    "collapse_pp": 22.4,
+    "note": "both arms scored with the paired-within-fold estimator; they differ only in whether labels belong to their hidden states"
+  }
+}

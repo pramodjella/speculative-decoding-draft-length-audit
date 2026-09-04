@@ -1,0 +1,43 @@
+{
+  "fixed_4": {
+    "passed": 4,
+    "total": 4,
+    "token_match_rate": 1.0,
+    "tokens_matched": 96,
+    "tokens_total": 96,
+    "mismatches": []
+  },
+  "entropy": {
+    "passed": 4,
+    "total": 4,
+    "token_match_rate": 1.0,
+    "tokens_matched": 96,
+    "tokens_total": 96,
+    "mismatches": []
+  },
+  "ucb": {
+    "passed": 4,
+    "total": 4,
+    "token_match_rate": 1.0,
+    "tokens_matched": 96,
+    "tokens_total": 96,
+    "mismatches": []
+  },
+  "epsilon_greedy": {
+    "passed": 3,
+    "total": 4,
+    "token_match_rate": 0.8958,
+    "tokens_matched": 86,
+    "tokens_total": 96,
+    "mismatches": [
+      {
+        "prompt_idx": 3,
+        "n_compared": 24,
+        "first_mismatch": 14
+      }
+    ]
+  },
+  "_summary": {
+    "all_pass": false
+  }
+}

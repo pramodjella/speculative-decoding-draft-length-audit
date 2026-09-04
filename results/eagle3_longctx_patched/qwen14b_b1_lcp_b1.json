@@ -1,0 +1,74 @@
+{
+  "target": "Qwen/Qwen3-14B",
+  "eagle_head": "AngelSlim/Qwen3-14B_eagle3",
+  "model": "qwen14b",
+  "batch": 1,
+  "ctx_len": 8192,
+  "results": [
+    {
+      "method": "baseline",
+      "K": 0,
+      "workload": "quality",
+      "model": "qwen14b",
+      "batch": 1,
+      "ctx_len": 8192,
+      "tokens": 2048,
+      "secs": 24.226,
+      "tok_per_s": 84.54,
+      "net_speedup": 1.0,
+      "accepted_tokens_per_step": null
+    },
+    {
+      "method": "eagle3_patched",
+      "K": 1,
+      "workload": "quality",
+      "model": "qwen14b",
+      "batch": 1,
+      "ctx_len": 8192,
+      "tokens": 2048,
+      "secs": 18.358,
+      "tok_per_s": 111.56,
+      "net_speedup": 1.32,
+      "accepted_tokens_per_step": 1.417
+    },
+    {
+      "method": "eagle3_patched",
+      "K": 2,
+      "workload": "quality",
+      "model": "qwen14b",
+      "batch": 1,
+      "ctx_len": 8192,
+      "tokens": 2048,
+      "secs": 17.826,
+      "tok_per_s": 114.89,
+      "net_speedup": 1.359,
+      "accepted_tokens_per_step": 1.5586
+    },
+    {
+      "method": "eagle3_patched",
+      "K": 3,
+      "workload": "quality",
+      "model": "qwen14b",
+      "batch": 1,
+      "ctx_len": 8192,
+      "tokens": 2048,
+      "secs": 17.47,
+      "tok_per_s": 117.23,
+      "net_speedup": 1.387,
+      "accepted_tokens_per_step": 1.6222
+    },
+    {
+      "method": "eagle3_patched",
+      "K": 4,
+      "workload": "quality",
+      "model": "qwen14b",
+      "batch": 1,
+      "ctx_len": 8192,
+      "tokens": 2048,
+      "secs": 18.213,
+      "tok_per_s": 112.45,
+      "net_speedup": 1.33,
+      "accepted_tokens_per_step": 1.6259
+    }
+  ]
+}

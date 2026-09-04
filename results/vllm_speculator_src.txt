@@ -1,0 +1,21 @@
+runner: vllm.v1.worker.gpu.model_runner.GPUModelRunner
+speculator: vllm.v1.worker.gpu.spec_decode.eagle.speculator.EagleSpeculator
+speculator mro: ['EagleSpeculator', 'AutoRegressiveSpeculator', 'DraftModelSpeculator', 'BaseSpeculator', 'ABC', 'object']
+
+propose object: <class 'method'>  repr=<bound method AutoRegressiveSpeculator.propose of <vllm.v1.worker.gpu.spec_decode.eagle.speculator.EagleSpeculator object at 0x2ac205874b90>>
+propose in type dict: False
+propose in instance dict: False
+propose.__wrapped__: <function AutoRegressiveSpeculator.propose at 0x2ac31f161b20>
+propose.__func__: <function AutoRegressiveSpeculator.propose at 0x2ac31f161bc0>
+
+speculator instance attrs: ['arange', 'attn_groups', 'block_tables', 'current_draft_step', 'decode_cudagraph_manager', 'device', 'dp_rank', 'dp_size', 'draft_attn_layer_names', 'draft_logits', 'draft_max_seq_len', 'draft_model_config', 'draft_tokens', 'dtype', 'hidden_size', 'hidden_states', 'idx_mapping', 'input_buffers', 'kv_cache_config', 'last_token_indices', 'max_model_len', 'max_num_reqs', 'max_num_tokens', 'method', 'model', 'model_state', 'num_speculative_steps', 'prefill_cudagraph_manager', 'scheduler_config', 'seeds', 'speculative_config', 'supports_mm_inputs', 'temperature', 'use_fp64_gumbel', 'vllm_config', 'vocab_size']
+
+===== FULL CLASS SOURCE EagleSpeculator =====
+class EagleSpeculator(AutoRegressiveSpeculator):
+    def load_draft_model(
+        self,
+        target_model: nn.Module,
+        target_attn_layer_names: set[str],
+    ) -> nn.Module:
+        return load_eagle_model(target_model, self.vllm_config)
+

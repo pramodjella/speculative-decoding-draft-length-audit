@@ -1,0 +1,6 @@
+controller,choose_us,update_us,total_us,under_100us
+EntropyThreshold,0.243,,0.243,True
+EpsilonGreedy,0.533,0.172,0.706,True
+UCB,0.151,0.175,0.326,True
+AcceptanceHistoryController,0.067,0.314,0.381,True
+LinUCBController,8.07,6.12,14.19,True

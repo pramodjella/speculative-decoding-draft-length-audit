@@ -1,0 +1,106 @@
+{
+  "target": "meta-llama/Llama-3.1-8B-Instruct",
+  "eagle_head": "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B",
+  "batch": 8,
+  "results": [
+    {
+      "method": "baseline",
+      "K": 0,
+      "workload": "humaneval",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 4.044,
+      "tok_per_s": 1012.94,
+      "net_speedup": 1.0,
+      "accepted_tokens_per_step": null
+    },
+    {
+      "method": "baseline",
+      "K": 0,
+      "workload": "gsm8k",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 3.935,
+      "tok_per_s": 1040.9,
+      "net_speedup": 1.0,
+      "accepted_tokens_per_step": null
+    },
+    {
+      "method": "baseline",
+      "K": 0,
+      "workload": "mt_bench",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 3.911,
+      "tok_per_s": 1047.28,
+      "net_speedup": 1.0,
+      "accepted_tokens_per_step": null
+    },
+    {
+      "method": "eagle3",
+      "K": 1,
+      "workload": "humaneval",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 3.14,
+      "tok_per_s": 1304.29,
+      "net_speedup": 1.288,
+      "accepted_tokens_per_step": 1.4365
+    },
+    {
+      "method": "eagle3",
+      "K": 1,
+      "workload": "gsm8k",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 3.012,
+      "tok_per_s": 1359.71,
+      "net_speedup": 1.306,
+      "accepted_tokens_per_step": 1.4426
+    },
+    {
+      "method": "eagle3",
+      "K": 1,
+      "workload": "mt_bench",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 3.443,
+      "tok_per_s": 1189.57,
+      "net_speedup": 1.136,
+      "accepted_tokens_per_step": 1.4198
+    },
+    {
+      "method": "eagle3",
+      "K": 2,
+      "workload": "humaneval",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 3.191,
+      "tok_per_s": 1283.49,
+      "net_speedup": 1.267,
+      "accepted_tokens_per_step": 1.6387
+    },
+    {
+      "method": "eagle3",
+      "K": 2,
+      "workload": "gsm8k",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 2.845,
+      "tok_per_s": 1439.73,
+      "net_speedup": 1.383,
+      "accepted_tokens_per_step": 1.6473
+    },
+    {
+      "method": "eagle3",
+      "K": 2,
+      "workload": "mt_bench",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 3.263,
+      "tok_per_s": 1255.45,
+      "net_speedup": 1.199,
+      "accepted_tokens_per_step": 1.6052
+    }
+  ]
+}

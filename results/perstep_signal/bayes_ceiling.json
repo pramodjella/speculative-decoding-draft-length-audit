@@ -1,0 +1,97 @@
+{
+  "deepseek": {
+    "n_steps": 8571,
+    "best_fixed_k": 1,
+    "speedups": {
+      "best_fixed": 1.0595,
+      "bayes_position": 1.0595,
+      "probe_deployable": 1.0595,
+      "bayes_hidden": 1.0595,
+      "oracle": 1.1073
+    },
+    "recovery_pct": {
+      "bayes_position": 0.0,
+      "probe_deployable": 0.0,
+      "bayes_hidden": 0.0,
+      "oracle": 100.0
+    },
+    "oracle_ceiling_pct": 4.5,
+    "bayes_hidden_lambda": 0.41
+  },
+  "deepseek_reasoning": {
+    "n_steps": 7819,
+    "best_fixed_k": 1,
+    "speedups": {
+      "best_fixed": 1.1094,
+      "bayes_position": 1.1094,
+      "probe_deployable": 1.1089,
+      "bayes_hidden": 1.1097,
+      "oracle": 1.204
+    },
+    "recovery_pct": {
+      "bayes_position": 0.0,
+      "probe_deployable": -0.6,
+      "bayes_hidden": 0.2,
+      "oracle": 100.0
+    },
+    "oracle_ceiling_pct": 8.5,
+    "bayes_hidden_lambda": 0.19
+  },
+  "llama8b": {
+    "n_steps": 5930,
+    "best_fixed_k": 2,
+    "speedups": {
+      "best_fixed": 1.2633,
+      "bayes_position": 1.2633,
+      "probe_deployable": 1.3064,
+      "bayes_hidden": 1.3039,
+      "oracle": 1.4915
+    },
+    "recovery_pct": {
+      "bayes_position": 0.0,
+      "probe_deployable": 18.9,
+      "bayes_hidden": 17.8,
+      "oracle": 100.0
+    },
+    "oracle_ceiling_pct": 18.1,
+    "bayes_hidden_lambda": 0.19
+  },
+  "llama8b_reasoning": {
+    "n_steps": 4601,
+    "best_fixed_k": 2,
+    "speedups": {
+      "best_fixed": 1.437,
+      "bayes_position": 1.437,
+      "probe_deployable": 1.4982,
+      "bayes_hidden": 1.4876,
+      "oracle": 1.7709
+    },
+    "recovery_pct": {
+      "bayes_position": 0.0,
+      "probe_deployable": 18.3,
+      "bayes_hidden": 15.2,
+      "oracle": 100.0
+    },
+    "oracle_ceiling_pct": 23.2,
+    "bayes_hidden_lambda": 0.2
+  },
+  "qwen14b": {
+    "n_steps": 6254,
+    "best_fixed_k": 2,
+    "speedups": {
+      "best_fixed": 1.2712,
+      "bayes_position": 1.2712,
+      "probe_deployable": 1.3012,
+      "bayes_hidden": 1.3022,
+      "oracle": 1.4288
+    },
+    "recovery_pct": {
+      "bayes_position": 0.0,
+      "probe_deployable": 19.1,
+      "bayes_hidden": 19.7,
+      "oracle": 100.0
+    },
+    "oracle_ceiling_pct": 12.4,
+    "bayes_hidden_lambda": 0.16
+  }
+}

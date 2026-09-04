@@ -1,0 +1,145 @@
+{
+  "target": "Qwen/Qwen2.5-7B-Instruct",
+  "draft": "Qwen/Qwen2.5-0.5B-Instruct",
+  "results": [
+    {
+      "method": "baseline",
+      "K": 0,
+      "workload": "humaneval",
+      "tokens": 1954,
+      "secs": 24.015,
+      "tok_per_s": 81.37,
+      "net_speedup": 1.0
+    },
+    {
+      "method": "baseline",
+      "K": 0,
+      "workload": "gsm8k",
+      "tokens": 2304,
+      "secs": 27.946,
+      "tok_per_s": 82.45,
+      "net_speedup": 1.0
+    },
+    {
+      "method": "baseline",
+      "K": 0,
+      "workload": "mt_bench",
+      "tokens": 2304,
+      "secs": 27.94,
+      "tok_per_s": 82.46,
+      "net_speedup": 1.0
+    },
+    {
+      "method": "ngram",
+      "K": 1,
+      "workload": "humaneval",
+      "tokens": 1954,
+      "secs": 20.278,
+      "tok_per_s": 96.36,
+      "net_speedup": 1.184
+    },
+    {
+      "method": "ngram",
+      "K": 1,
+      "workload": "gsm8k",
+      "tokens": 2304,
+      "secs": 25.309,
+      "tok_per_s": 91.03,
+      "net_speedup": 1.104
+    },
+    {
+      "method": "ngram",
+      "K": 1,
+      "workload": "mt_bench",
+      "tokens": 2304,
+      "secs": 29.67,
+      "tok_per_s": 77.66,
+      "net_speedup": 0.942
+    },
+    {
+      "method": "ngram",
+      "K": 2,
+      "workload": "humaneval",
+      "tokens": 1954,
+      "secs": 18.541,
+      "tok_per_s": 105.39,
+      "net_speedup": 1.295
+    },
+    {
+      "method": "ngram",
+      "K": 2,
+      "workload": "gsm8k",
+      "tokens": 2304,
+      "secs": 23.648,
+      "tok_per_s": 97.43,
+      "net_speedup": 1.182
+    },
+    {
+      "method": "ngram",
+      "K": 2,
+      "workload": "mt_bench",
+      "tokens": 2304,
+      "secs": 27.464,
+      "tok_per_s": 83.89,
+      "net_speedup": 1.017
+    },
+    {
+      "method": "ngram",
+      "K": 4,
+      "workload": "humaneval",
+      "tokens": 1954,
+      "secs": 16.703,
+      "tok_per_s": 116.99,
+      "net_speedup": 1.438
+    },
+    {
+      "method": "ngram",
+      "K": 4,
+      "workload": "gsm8k",
+      "tokens": 2304,
+      "secs": 22.677,
+      "tok_per_s": 101.6,
+      "net_speedup": 1.232
+    },
+    {
+      "method": "ngram",
+      "K": 4,
+      "workload": "mt_bench",
+      "tokens": 2304,
+      "secs": 28.077,
+      "tok_per_s": 82.06,
+      "net_speedup": 0.995
+    },
+    {
+      "method": "ngram",
+      "K": 8,
+      "workload": "humaneval",
+      "tokens": 1957,
+      "secs": 17.09,
+      "tok_per_s": 114.51,
+      "net_speedup": 1.407
+    },
+    {
+      "method": "ngram",
+      "K": 8,
+      "workload": "gsm8k",
+      "tokens": 2304,
+      "secs": 22.925,
+      "tok_per_s": 100.5,
+      "net_speedup": 1.219
+    },
+    {
+      "method": "ngram",
+      "K": 8,
+      "workload": "mt_bench",
+      "tokens": 2304,
+      "secs": 27.508,
+      "tok_per_s": 83.76,
+      "net_speedup": 1.016
+    }
+  ],
+  "methods_working": {
+    "ngram": true,
+    "draft": false
+  }
+}

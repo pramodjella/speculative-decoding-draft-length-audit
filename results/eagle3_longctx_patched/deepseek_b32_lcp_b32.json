@@ -1,0 +1,74 @@
+{
+  "target": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+  "eagle_head": "yuhuili/EAGLE3-DeepSeek-R1-Distill-LLaMA-8B",
+  "model": "deepseek",
+  "batch": 32,
+  "ctx_len": 8192,
+  "results": [
+    {
+      "method": "baseline",
+      "K": 0,
+      "workload": "quality",
+      "model": "deepseek",
+      "batch": 32,
+      "ctx_len": 8192,
+      "tokens": 2048,
+      "secs": 2.036,
+      "tok_per_s": 1005.68,
+      "net_speedup": 1.0,
+      "accepted_tokens_per_step": null
+    },
+    {
+      "method": "eagle3_patched",
+      "K": 1,
+      "workload": "quality",
+      "model": "deepseek",
+      "batch": 32,
+      "ctx_len": 8192,
+      "tokens": 2048,
+      "secs": 2.157,
+      "tok_per_s": 949.36,
+      "net_speedup": 0.944,
+      "accepted_tokens_per_step": 1.1147
+    },
+    {
+      "method": "eagle3_patched",
+      "K": 2,
+      "workload": "quality",
+      "model": "deepseek",
+      "batch": 32,
+      "ctx_len": 8192,
+      "tokens": 2048,
+      "secs": 2.166,
+      "tok_per_s": 945.33,
+      "net_speedup": 0.94,
+      "accepted_tokens_per_step": 1.1429
+    },
+    {
+      "method": "eagle3_patched",
+      "K": 3,
+      "workload": "quality",
+      "model": "deepseek",
+      "batch": 32,
+      "ctx_len": 8192,
+      "tokens": 1921,
+      "secs": 2.352,
+      "tok_per_s": 816.67,
+      "net_speedup": 0.812,
+      "accepted_tokens_per_step": 1.1297
+    },
+    {
+      "method": "eagle3_patched",
+      "K": 4,
+      "workload": "quality",
+      "model": "deepseek",
+      "batch": 32,
+      "ctx_len": 8192,
+      "tokens": 2048,
+      "secs": 2.376,
+      "tok_per_s": 861.95,
+      "net_speedup": 0.857,
+      "accepted_tokens_per_step": 1.1379
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "C_measured": 0.07239999999999999,
+  "per_scope_C": {
+    "gsm8k": 0.06609999999999999,
+    "humaneval": 0.0707,
+    "mt_bench": 0.06939999999999999,
+    "MIXED": 0.07239999999999999
+  },
+  "result": {
+    "n_steps": 5930,
+    "best_fixed_k": 3,
+    "speedups": {
+      "best_fixed": 1.4462,
+      "bayes_position": 1.4462,
+      "probe_deployable": 1.4877,
+      "bayes_hidden": 1.484,
+      "oracle": 1.6851
+    },
+    "recovery_pct": {
+      "bayes_position": 0.0,
+      "probe_deployable": 17.3,
+      "bayes_hidden": 15.8,
+      "oracle": 100.0
+    },
+    "oracle_ceiling_pct": 16.5,
+    "bayes_hidden_lambda": 0.1
+  }
+}

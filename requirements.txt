@@ -1,0 +1,14 @@
+# Core (day-one smoke run needs only pyyaml + pytest)
+pyyaml>=6.0
+pytest>=7.0
+numpy>=1.24
+modal>=0.63.0
+
+# Inference stack (uncomment when you move past --smoke)
+# torch>=2.2
+# transformers>=4.44
+# accelerate>=0.30
+datasets>=2.19
+# vllm>=0.6.0           # serving / speculation / quantized KV
+# lm-eval>=0.4.3        # benchmark harness
+
