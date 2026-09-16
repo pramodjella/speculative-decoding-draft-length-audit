@@ -123,7 +123,8 @@ by roughly five times (\S\ref{sec:gate1}).
 
 \emph{Gate 2, can any real signal reach the rest?} The reachable slice is genuinely there, and
 we find where it lives. It is not in the cheap logit features the literature has used, which
-recover $-2.7$ to $8.5\%$ of the span, nor in token position, which recovers exactly zero. It is
+recover $-2.7$ to $8.5\%$ of the span and go negative on the reasoning head, nor in token
+position, which recovers exactly zero. It is
 in the drafter's hidden state, from which a PCA and logistic probe recovers about a fifth of
 the oracle span (\S\ref{sec:gate2}). This closes a door rather than opening one. We looked in
 the best remaining place and the answer was still no.
@@ -772,12 +773,11 @@ measurements from this setting explain the pattern. First, the prize is capped: 
 per-request oracle is $+2.0\%$, so a controller has to find the right depth almost immediately
 or its exploration is unrecoverable. Reactive bandits explore by construction, and here there
 is nothing to amortise that exploration against. Second, the quantity they are trying to learn
-barely persists. Across the 1{,}295 decode steps of the signal capture behind this harness,
-the accept-run distribution is heavily
-zero-inflated, with $61\%$ of steps accepting no draft token at all, and the lag-1
-autocorrelation of the accept-run is only $0.247$. What the last step taught is a weak
-guide to the next one, so an online learner spends its budget tracking something close to
-noise.
+barely persists. The signal capture behind this harness covers 1{,}295 decode steps. Across
+them the accept-run distribution is heavily zero-inflated, with $61\%$ of steps accepting no
+draft token at all, and the lag-1 autocorrelation of the accept-run is only $0.247$. What the
+last step taught is a weak guide to the next one, so an online learner spends its budget
+tracking something close to noise.
 
 That is the learning we would most like others to test. A stronger bandit, a better-designed
 exploration schedule, or a setting with higher autocorrelation might change this. We would be
