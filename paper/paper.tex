@@ -1,3 +1,6 @@
+% Figures are PNG, so this must build under pdflatex. arXiv's AutoTeX picks the engine
+% itself unless told; declaring it in the first lines is their documented way to be sure.
+\pdfoutput=1
 \documentclass[conference]{IEEEtran}
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
@@ -26,8 +29,7 @@
 \title{Following the Speedup: An Audit of Adaptive\\ Draft Length in Speculative Decoding}
 
 \author{
-% Titles dropped: ML venues do not use them in the byline. Affiliation restored 2026-09-15 on
-% Naman's confirmation that Vizuara AI Labs is the one to list; all six authors share it, so a
+% No titles in the byline, per ML venue convention. All six authors share one affiliation, so a
 % single unmarked line is correct and no \IEEEauthorrefmark superscripts are needed.
 \IEEEauthorblockN{Pramod Kumar Reddy Jella,
 Yash Dixit,

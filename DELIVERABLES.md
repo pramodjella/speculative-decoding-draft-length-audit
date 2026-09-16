@@ -27,7 +27,7 @@ Full prose: [results/insight_report_eagle3_8b.md](results/insight_report_eagle3_
 - Speculation backbone + per-step hooks → [modal_eagle3_perstep_capture.py](modal_eagle3_perstep_capture.py) (read-only draft+target entropy hooks)
 - Mixed-traffic harness / per-step logging → [src/bench/](src/bench/), [src/serve/](src/serve/)
 - EDA → [notebooks/01_EDA.ipynb](notebooks/01_EDA.ipynb)
-- **Output equivalence (lossless)** → exact-verification EAGLE-3; fp32 100% token-identical, [results/equivalence_postfix_fp32.json](results/equivalence_postfix_fp32.json)
+- **Output equivalence (lossless)** → lossless *by construction* under exact verification: the draft length changes what is proposed, never what is emitted. No token-identity audit was run on the EAGLE-3 pairs. The one direct check, [results/equivalence_postfix_fp32.json](results/equivalence_postfix_fp32.json), is on a Qwen2.5-1.5B/0.5B pure-Python harness (`modal_equivalence_fp32.py`) over 4 prompts, and is **not clean**: it reports `"all_pass": false`, with `epsilon_greedy` at 3/4 prompts and 89.6% token match. Treat it as a prototype-era spot check, not as proof.
 
 ## M3 — Experiments & Ablations
 - Controller-vs-fixed (per-request) → [results/eagle3_8b/policies.csv](results/eagle3_8b/policies.csv) (`src/simulate_eagle_controllers.py`)

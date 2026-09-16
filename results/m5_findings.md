@@ -25,11 +25,21 @@ This is the exact motivation for a per-step/per-workload adaptive controller,
 now demonstrated with production-engine numbers rather than a simulator or a
 Python prototype.
 
-## 2. Lossless guarantee — proven exactly in fp32
+## 2. Lossless guarantee — by construction, not by audit
 
-Speculative decoding with greedy verification is lossless in exact arithmetic.
-We verify directly: in fp32, all six controllers reproduce the target's greedy
-output **100% token-for-token** across 12 prompts (`m5_equivalence_fp32.json`).
+> ⚠️ **CORRECTED 2026-09-16.** This section previously claimed that in fp32 "all six
+> controllers reproduce the target's greedy output **100% token-for-token** across 12
+> prompts," citing `m5_equivalence_fp32.json`. **That file is not in this repo and that
+> number is not reproducible from anything released here.** The fp32 artifact we do ship,
+> [equivalence_postfix_fp32.json](equivalence_postfix_fp32.json), reports `"all_pass": false`
+> over 4 prompts: `fixed_4`, `entropy` and `ucb` match at 1.0, but `epsilon_greedy` passes
+> 3/4 at 89.6% token match. The residual mismatch was never diagnosed in fp32 — the tie
+> diagnostic below is bf16-only. The paper therefore rests losslessness on exact
+> verification *by construction* and claims no token-identity audit.
+
+Speculative decoding with greedy verification is lossless in exact arithmetic: the draft
+length changes what is proposed, never what is emitted. That is the guarantee the work
+relies on. Note this run is the 1.5B/0.5B pure-Python prototype, not the EAGLE-3 pairs.
 In bf16 we observe occasional divergence; a per-step diagnostic shows every
 divergence occurs at an *exact* logit tie (Δ = 0.0000 between the competing
 tokens), where argmax tie-breaking differs between the cached single-token path
