@@ -186,9 +186,11 @@ Qwen3-14B with \texttt{AngelSlim/\allowbreak Qwen3-14B\_eagle3}; DeepSeek-R1-Dis
 \texttt{yuhuili/\allowbreak EAGLE3-DeepSeek-R1-\allowbreak Distill-LLaMA-8B}.
 
 \emph{Engine.} vLLM 0.23 (V1) on an H100, greedy, $B{=}1$ unless stated. Verification is
-exact, so decoding is lossless; fp32 outputs are token-identical to the non-speculative
-baseline. The wall-clock experiments use the SafeAILab/EAGLE-3 reference implementation
-because vLLM exposes no per-step draft-length hook.
+exact, so decoding is lossless by construction: the draft length changes what is proposed,
+never what is emitted. Every comparison here rests on that property rather than on a
+token-identity audit of these runs, which we did not carry out. The wall-clock experiments use
+the SafeAILab/EAGLE-3 reference implementation because vLLM exposes no per-step draft-length
+hook.
 
 \emph{Workloads.} HumanEval, GSM8K and MT-Bench. Sample sizes differ by experiment and we
 state them explicitly, since they are small. The hidden-state capture behind the decomposition
@@ -331,9 +333,10 @@ which is a second built-in check;
 column.} Oracle span and Net are absolute cost-model gains over the tuned fixed $K$; the two
 recovery columns are fractions of that span, so a recovery larger than a span is not a
 violation. Net is the deployable probe's own gain over the tuned fixed $K$, computed per fold
-and averaged. Oracle span is computed per fold rather than once over the whole capture;
-the whole-capture convention shifts the recovery columns by at most $1.6$\,pp and
-changes no conclusion. Bayes(position) is omitted because it is $+0.0\%$ in all five settings by
+and averaged. The two conventions for the span are separated here: the recovery columns divide
+by a per-fold span, while the Oracle span column is the pooled whole-capture figure, which runs
+up to $0.6$\,pp above the per-fold mean. Dividing the recovery columns by the pooled span
+instead shifts them by at most $1.6$\,pp and changes no conclusion. Bayes(position) is omitted because it is $+0.0\%$ in all five settings by
 construction, which is the correctness check described above.}
 \label{tab:decomp}
 \centering
