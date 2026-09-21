@@ -235,7 +235,10 @@ and \S\ref{sec:gate1} is about how much of that value any real policy can captur
 step, $\mathrm{acc}\in\{0,\dots,K\}$ counts the drafted tokens the target accepts, so the step
 emits $\mathrm{acc}{+}1$ tokens, and $\mathrm{MAT}$ is $\mathbb{E}[\mathrm{acc}{+}1]$. The
 constant $C$ is the draft-to-target per-token cost ratio: one draft forward costs $C$ target
-forwards, so a $K$-token step costs $1{+}CK$.
+forwards, so a $K$-token step costs $1{+}CK$. The saturation policy of \S\ref{sec:survivor} is
+written cum($\tau$): stop drafting once the running best-path probability falls below $\tau$,
+so a larger $\tau$ stops sooner. Each engine gets its own $\tau$ chosen on train, cum(0.05) in
+the EAGLE-3 tree and cum(0.2) in the vLLM chain.
 
 \emph{Cost model.} Offline policies are scored with $\mathrm{speedup} = \mathrm{MAT}/(1+CK)$.
 We fit $C$ instead of assuming it. Setting $\mathrm{net}(K) = \mathrm{accept\_len}(K)/(1+CK)$
@@ -495,8 +498,8 @@ permits it.
 \label{sec:zoo}
 We extended the test to three stopping policies through the same verified codepath:
 SVIP-style entropy, SADDLE/PACER-style cumulative path probability, and a SpecDec++-style
-trained hidden probe. A margin-threshold arm ran in an earlier pass and was dropped before the
-held-out verification, so we do not report a number for it.
+trained hidden probe. A margin-threshold arm ran in the first, in-distribution pass and did
+not carry into the held-out reruns, so there is no held-out number for it.
 
 These are reimplementations of each stop \emph{mechanism} rather than ports of the published
 systems, and the distinction matters for what the results can be read to mean. Running four
@@ -559,11 +562,7 @@ acting on it makes things worse.
 \label{sec:survivor}
 One arm in Table~\ref{tab:zoo} behaves differently from the rest, and it is the one that uses
 no learned signal at all. Saturation tail-pruning stops drafting when the cumulative best-path
-probability the drafter has already computed falls below a threshold. We write the rule as
-cum($\tau$): stop once that running product drops below $\tau$, so a larger $\tau$ stops
-sooner and drafts less. Each engine gets its own $\tau$ chosen on train, cum(0.05) in the
-EAGLE-3 tree and cum(0.2) in the vLLM chain, and we name the value wherever we quote a number.
-Zero model cost, no
+probability the drafter has already computed falls below a threshold. Zero model cost, no
 training, and the policy family already exists in prior art \cite{saddle,pacer,ddd}. Under the
 paired protocol it wins (Table~\ref{tab:paired}).
 
@@ -664,24 +663,23 @@ kernel-regime step, from the non-speculative single-token forward at $q{=}1$, 15
 multi-token path. After that it is flat: $q{=}2$ to $q{=}8$ runs 18.5 down to 18.2\,ms at
 $B{=}1$.
 Native $K{=}2$'s $q{=}3$ and the padded arm's $q{=}8$ differ by under 1\%. The honest headline
-for Table~\ref{tab:fairbase} is therefore $+2$ to $6\%$ with one of three workloads a wash:
-MT-Bench reads $+2.0\pm1.1$ across containers, which three containers cannot separate from
-zero, its worst cell reads $-0.2\pm2.0$ within its own run, and no cell is a significant
-loss.
+for Table~\ref{tab:fairbase} is therefore $+2$ to $6\%$, with one of three workloads a wash.
+MT-Bench reads $+2.0\pm1.1$ over containers, and three containers cannot separate that from
+zero. Its worst cell is $-0.2\pm2.0$. No cell is a significant loss.
 
 \emph{Temperature and batch.} At $T{=}0.8$ with seeded sampling and rejection-sampling
 verification the win survives, $+5.4\%$, $+2.1\%$ and $+1.5\%$, all positive-significant, at
 realized depth 2.24. Sampling lowers acceptance, so saturation fires earlier, which is the
 direction the mechanism predicts. With batch the gain decays monotonically
 (Fig.~\ref{fig:batch}): $+2$ to $6\%$ at $B{=}1$, about $+1\%$ at $B{=}4$, and 0 to $-3\%$ at
-$B{=}8$. Realized depth moves 2.30, 2.68, 2.57 across the three batch sizes, rising where
-the gain first erodes rather than tracking it all the way down. We use a batch-level
+$B{=}8$. Realized depth moves 2.30, 2.68, 2.57 across the three batch sizes. We use a
+batch-level
 mean-confidence rule because per-request ragged stopping is impossible in a batch-synchronized
 draft loop, which is itself a finding about adaptive-length methods in serving engines. The
 microbench identifies the mechanism: verify latency stays flat even at $B{=}8\times q{=}8$, so
 the decay is not verification-cost growth. It is the batch-synchronized mean stop wasting
 per-request adaptivity, forcing rejects on requests whose chains were still alive, and the
-rising realized depth is that compromise made visible.
+depth rising at $B{=}4$ is that compromise becoming visible.
 
 \begin{figure}[t]
 \centering
@@ -880,10 +878,11 @@ on.
 % column and produced a dozen badly stretched lines, and a list of scripts reads better as a
 % list anyway.
 Everything is released at
-\url{https://github.com/pramodjella/speculative-decoding-draft-length-audit}, including the raw
-per-run JSON behind every table and figure here except Table~\ref{tab:inloop}, whose harness
-writes to a Modal volume; its cells are recorded in \texttt{DELIVERABLES.md}, which maps each
-result (E1--E6) to the script and artifact that produced it.
+\url{https://github.com/pramodjella/speculative-decoding-draft-length-audit}.
+\texttt{DELIVERABLES.md} maps each result (E1--E6) to the script and artifact that produced
+it. The raw per-run JSON behind every table and figure here is released with it. The one
+exception is Table~\ref{tab:inloop}, whose harness writes to a Modal volume; its cells are
+recorded in \texttt{DELIVERABLES.md}.
 
 \begingroup
 \small

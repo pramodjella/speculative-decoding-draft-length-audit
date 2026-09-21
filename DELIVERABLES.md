@@ -11,7 +11,7 @@ tracks remain in place and corroborate it.
 |---|---|
 | Best fixed K (mixed) | **K=2 → 1.54× net speedup** (HumanEval/GSM8K 1.64–1.65×, MT-Bench 1.36×) |
 | RQ1: cheap per-step controller beats best fixed? | **No.** Per-request oracle ceiling only +2.0%; online controllers lose (UCB −4.9%, ε-greedy −6.9%, History −9.3%) to cold-start regret |
-| Key nuance | **Per-step** oracle ceiling is **+18.1%** for Llama (audited pipeline; +12–23% across models, see [docs/CANONICAL.md](docs/CANONICAL.md)); cheap signals barely dent it (SVIP entropy +0.3%); a hidden-state probe recovers ~1/5 *offline* (+2.3–3.4% upper bound) but **loses end-to-end** — the only wall-clock survivor is signal-free saturation tail-pruning (E5/E6) |
+| Key nuance | **Per-step** oracle ceiling is **+18.1%** for Llama (audited pipeline; +12–23% across models, see [docs/CANONICAL.md](docs/CANONICAL.md)); cheap logit signals barely dent it (−2.7 to +8.5% of span, E2); a hidden-state probe recovers ~1/5 *offline* (+2.0–3.1% net) but **loses end-to-end** — the only wall-clock survivor is signal-free saturation tail-pruning (E5/E6) |
 | RQ2: best signal | top-1 margin (1.273) ≳ entropy/SVIP (1.258) > fixed (1.254); optimum K small (2–3) on every workload |
 | RQ3: generalisation | one fixed K=2 within ~1% of per-workload optimum (worst retune gap −2.4%) |
 
@@ -165,6 +165,7 @@ Two measurements, both on held-out generations (8-fold gen-split CV):
 | Qwen3-14B (instruct) | 0.484 | **0.876** |
 | DeepSeek-R1 (reasoning) | 0.484 | **0.870** |
 
+<!-- superseded-block: start (un-paired ladder, kept for the audit trail; see the banner below) -->
 **(b) Exploitation — Bayes-ceiling decomposition (`analyze_bayes_ceiling.py`):**
 
 | Model | Best fixed K | Per-step oracle ceiling | Bayes(position) | **Probe (deploy)** net gain | % of oracle recovered |
@@ -208,6 +209,8 @@ Two measurements, both on held-out generations (8-fold gen-split CV):
 recovers ~1/5 of the per-step oracle (+2.4–3.4% net over tuned fixed K, cost-model + measured-cost
 grounded); for reasoning models fixed K=1 is optimal. **But see E5:** a *deployable* per-step
 controller does not realize this end-to-end, so tuned fixed length remains the shipping answer.
+
+<!-- superseded-block: end -->
 
 > **Which artifact the paper quotes.** Everything above is the original *un-paired* ladder
 > (`analyze_bayes_ceiling.py` -> `bayes_ceiling.json`). Table I of the paper is the **paired
@@ -306,7 +309,8 @@ chase irreducible variance and lose; saturation detection is deterministic given
 
 **Scoped amendment to the headline:** learned per-step shortening still doesn't pay (core
 unchanged); the deployable answer in the tree regime is a tuned deep draft **plus free
-saturation tail-pruning (+3–5%, strong instruction heads at B=1)**.
+saturation tail-pruning (+2–5% in the tree, +2–6% in the vLLM chain, strong instruction
+heads at B=1)**.
 
 **Cross-head replication (done):** on the weaker DeepSeek-R1-Distill head the paired protocol
 gives a TIE (−0.7/−0.9/+1.4%, n.s.; realized depth 6.19, pruning only ~0.8 levels) → the gain is
@@ -327,7 +331,8 @@ harness `modal_vllm_tailprune2.py`; diagnostics `modal_vllm_tailprune_diag*.py` 
 
 **Final survivor claim (all engines/models, paired+gated):** signal-free saturation pruning at a
 conservative threshold **ties or beats tuned fixed everywhere tested** (Llama chain +2.9–7.5%,
-Llama tree +3–5%, Qwen3 chain +0.3–1.3%, weak-head tree ~0); every learned policy loses.
+Llama tree +2.9–4.8%, Qwen3 chain +0.3–1.3%, weak-head tree ~0); every learned policy
+loses.
 
 Artifacts: [results/perstep_signal/policy_zoo.md](results/perstep_signal/policy_zoo.md),
 `results/{eagle_zoo,eagle_zoo_verify,eagle_zoo_verify_iid,eagle_paired}.json`.

@@ -40,12 +40,20 @@ Fair baseline = strongest NATIVE fixed-K engine (true verification budget), pair
 
 | Workload | cross-run gain |
 |---|---:|
-| HumanEval | +5.6% ±2.0 |
-| GSM8K | +5.7% ±2.9 |
-| MT-Bench | **+2.0% ±1.6 — a WASH** (worst cell −0.2±2.0) |
+| HumanEval | +5.6% ±1.2 |
+| GSM8K | +5.7% ±2.0 |
+| MT-Bench | **+2.0% ±1.1 — a WASH** (worst cell −0.2±2.0 within its own run) |
 
-**Headline sentence (frozen wording):** *"+2–5%, and one of three workloads is a wash; never a
-significant loss."* Do NOT write "+4–5% typical".
+**SE CONVENTION (corrected 2026-09-15).** The ± column is the standard error over the three
+containers: sample SD of the three cell means ÷ √3. It previously printed a standard
+deviation, and inconsistently. Cells and means were always right; only the bars moved.
+MT-Bench stays a WASH: n=3 containers cannot separate +2.0 from zero.
+
+**Headline sentence (frozen wording, corrected 2026-09-15):** *"+2–6%, and one of three
+workloads is a wash; never a significant loss."* The range is the span of the table above
+(+2.0 to +5.7). The EAGLE-3 **tree** result (thr=0.05) is a separate, narrower **+2–5%**
+(+2.90 to +4.77) — quote it only as the tree number, never as the headline. Do NOT write
+"+4–5% typical".
 
 - **Temperature T=0.8:** survives — +5.4/+2.1/+1.5% (all positive-significant).
 - **Batch:** B=4 → +2.6/+0.4/+0.5%; B=8 → −0.9/−3.1/+0.6%. **Mechanism (microbench-corrected):

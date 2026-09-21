@@ -8,7 +8,15 @@ cd "$(dirname "$0")/.."
 # analyze_make_figures.py is in the ship set because the PNGs it emits go into the arXiv
 # tarball: the retired "Bayes(hidden)" rung name survived a passing stale-check by living in
 # a figure title rather than in prose, and no amount of grepping the .tex could see it.
-SHIP_SET=(paper/paper.tex report/paper_draft.md README.md analyze_make_figures.py)
+# DELIVERABLES.md is in the ship set because the paper's Reproducibility section sends
+# readers straight to it, and it once carried the retired un-paired ladder while Table II
+# printed the corrected paired figures -- our own pointer contradicting the paper.
+#
+# It still carries that ladder ON PURPOSE, as an audit trail, fenced by
+# <!-- superseded-block: start --> / <!-- superseded-block: end --> and a banner naming the
+# values that replace it. Lines inside that fence are exempt below; everything outside it is
+# still guarded, so a retired number cannot quietly reappear elsewhere in the file.
+SHIP_SET=(paper/paper.tex report/paper_draft.md README.md analyze_make_figures.py DELIVERABLES.md)
 
 # Retired claims (see docs/CANONICAL.md): old oracle figures, sigma-multiplier
 # language, the pre-audit headline, and the retracted G3 v1/v2 diag claim.
@@ -43,7 +51,10 @@ for f in "${SHIP_SET[@]}"; do
   [ -f "$f" ] || { echo "MISSING ship-set file: $f"; fail=1; continue; }
   for p in "${PATTERNS[@]}"; do
     # lines that explicitly retire a figure are allowed to name it
-    hits=$(grep -nE "$p" "$f" | grep -vEi 'historical note|retired|retracted|superseded' || true)
+    # strip fenced superseded blocks before matching, then drop lines that name themselves
+    # as retired; awk keeps the original line numbers so the report still points somewhere.
+    body=$(awk '/<!-- superseded-block: start/{skip=1} {print (skip?"":$0)} /<!-- superseded-block: end/{skip=0}' "$f" | grep -nE "$p" || true)
+    hits=$(echo "$body" | grep -vEi 'historical note|retired|retracted|superseded' | grep -v '^$' || true)
     if [ -n "$hits" ]; then
       echo "STALE CLAIM in $f (pattern: $p):"
       echo "$hits" | head -5

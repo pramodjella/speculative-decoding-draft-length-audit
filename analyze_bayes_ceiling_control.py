@@ -7,11 +7,13 @@ to a RANDOM block's hidden states. That destroys h->accept while preserving the 
 label distribution and the prefix structure exactly.
 """
 import sys, os
-sys.path.insert(0, r'F:\Inference Engineering\09_Pramod_Jella_Adaptive_Draft_Length\09_Pramod_Jella_Adaptive_Draft_Length')
+sys.path.insert(0, os.environ.get('CAPTURE_DIR', '.'))
 import numpy as np, pandas as pd
 import analyze_bayes_ceiling as A
 
-IN = r'F:\Inference Engineering\09_Pramod_Jella_Adaptive_Draft_Length\09_Pramod_Jella_Adaptive_Draft_Length\results\eagle3_hidden_full\hidden_full_llama8b.parquet'
+# Repo root by default; set CAPTURE_DIR if the capture parquet lives elsewhere.
+IN = os.path.join(os.environ.get('CAPTURE_DIR', '.'),
+                  'results', 'eagle3_hidden_full', 'hidden_full_llama8b.parquet')
 
 df = pd.read_parquet(IN, engine='pyarrow')
 df["uid"] = df["workload"].astype(str) + ":" + df["gen_i"].astype(str)
