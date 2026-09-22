@@ -28,10 +28,22 @@ DROP_PATHS = {
     "report",                       # internal review correspondence
     "literature_matrix.xlsx",
     "scripts/build_docx.sh",        # its pandoc metadata block lists every author by name
+    "scripts/build_tmlr.py",        # carries the \author block it injects, names and all
+    "scripts/build_tmlr_supplement.py",   # this file: its identifier list is the names
+    "scripts/sync_public_artifact.sh",    # paper-production tooling, not artifact
+    "scripts/redact_public_docs.py",
 }
 IDENTIFIERS = ["Vizuara", "pramodjella", "Pramod", "Jella", "Dixit", "Dwivedi",
                "Dandekar", "Panat", "vizuara.com"]
-SCAN_EXT = (".md", ".py", ".sh", ".txt", ".json", ".csv", ".tex", ".cu", ".ipynb")
+
+# Scan by exclusion, not by allowlist. An extension allowlist silently skips every
+# extensionless file -- LICENSE, Makefile, Dockerfile, CITATION -- and LICENSE is exactly
+# where a copyright holder's name lives. This shipped once: a bundle went out carrying an
+# affiliation in its LICENSE because ".md/.py/.sh/..." did not match a file called LICENSE.
+BINARY_EXT = (".png", ".jpg", ".jpeg", ".gif", ".pdf", ".zip", ".gz", ".tar", ".parquet",
+              ".xlsx", ".xls", ".docx", ".pptx", ".pyc", ".so", ".bin", ".npy", ".npz",
+              ".woff", ".woff2", ".ttf", ".ico")
+MAX_SCAN_BYTES = 40 * 1024 * 1024
 
 README = """# Artifact for "Following the Speedup: An Audit of Adaptive Draft Length in Speculative Decoding"
 
@@ -99,18 +111,26 @@ def main():
                  lambda l: re.sub(r"r'F:[^']*'", "r'<path to the capture parquet>'", l))
     redact_lines(os.path.join(root, "results", "insight_report.md"),
                  lambda l: "**Author:** anonymised for review" if l.startswith("**Author:**") else l)
+    redact_lines(os.path.join(root, "LICENSE"),
+                 lambda l: re.sub(r"^(Copyright \(c\) \d{4}) .*$",
+                                  r"\1 [authors removed for anonymous review]", l))
 
     # Scan what survived. Anything still naming an author fails the build.
     leaks = []
     for dirpath, dirs, files in os.walk(root):
         for f in files:
-            if not f.endswith(SCAN_EXT):
+            if f.lower().endswith(BINARY_EXT):
                 continue
             p = os.path.join(dirpath, f)
             try:
-                body = open(p, encoding="utf-8", errors="replace").read()
+                if os.path.getsize(p) > MAX_SCAN_BYTES:
+                    continue
+                raw = open(p, "rb").read()
             except OSError:
                 continue
+            if b"\0" in raw[:8192]:          # binary without a telltale extension
+                continue
+            body = raw.decode("utf-8", errors="replace")
             for i, line in enumerate(body.split("\n"), 1):
                 for ident in IDENTIFIERS:
                     if ident in line:

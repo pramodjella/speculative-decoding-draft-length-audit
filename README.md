@@ -126,4 +126,12 @@ repository. Nothing in this paper depends on it.
 }
 ```
 
+## License
+
+Code and analysis scripts: [MIT](LICENSE). The released measurements under `results/` are
+covered by the same terms. The paper text and figures are the authors'; cite the paper rather
+than reusing them directly.
+
+---
+
 _Vizuara AI Labs — for research and educational purposes._
