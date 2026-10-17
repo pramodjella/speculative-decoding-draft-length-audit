@@ -1,0 +1,139 @@
+{
+  "target": "meta-llama/Llama-3.1-8B-Instruct",
+  "eagle_head": "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B",
+  "batch": 8,
+  "results": [
+    {
+      "method": "baseline",
+      "K": 0,
+      "workload": "humaneval",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 3.55,
+      "tok_per_s": 1153.65,
+      "net_speedup": 1.0,
+      "accepted_tokens_per_step": null
+    },
+    {
+      "method": "baseline",
+      "K": 0,
+      "workload": "gsm8k",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 3.452,
+      "tok_per_s": 1186.53,
+      "net_speedup": 1.0,
+      "accepted_tokens_per_step": null
+    },
+    {
+      "method": "baseline",
+      "K": 0,
+      "workload": "mt_bench",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 3.461,
+      "tok_per_s": 1183.38,
+      "net_speedup": 1.0,
+      "accepted_tokens_per_step": null
+    },
+    {
+      "method": "eagle3",
+      "K": 3,
+      "workload": "humaneval",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 3.163,
+      "tok_per_s": 1295.06,
+      "net_speedup": 1.123,
+      "accepted_tokens_per_step": 1.7036
+    },
+    {
+      "method": "eagle3",
+      "K": 3,
+      "workload": "gsm8k",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 2.722,
+      "tok_per_s": 1504.58,
+      "net_speedup": 1.268,
+      "accepted_tokens_per_step": 1.7307
+    },
+    {
+      "method": "eagle3",
+      "K": 3,
+      "workload": "mt_bench",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 3.236,
+      "tok_per_s": 1265.63,
+      "net_speedup": 1.07,
+      "accepted_tokens_per_step": 1.6812
+    },
+    {
+      "method": "eagle3",
+      "K": 4,
+      "workload": "humaneval",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 3.306,
+      "tok_per_s": 1239.12,
+      "net_speedup": 1.074,
+      "accepted_tokens_per_step": 1.7375
+    },
+    {
+      "method": "eagle3",
+      "K": 4,
+      "workload": "gsm8k",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 2.856,
+      "tok_per_s": 1434.31,
+      "net_speedup": 1.209,
+      "accepted_tokens_per_step": 1.7694
+    },
+    {
+      "method": "eagle3",
+      "K": 4,
+      "workload": "mt_bench",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 3.431,
+      "tok_per_s": 1193.99,
+      "net_speedup": 1.009,
+      "accepted_tokens_per_step": 1.7145
+    },
+    {
+      "method": "eagle3",
+      "K": 5,
+      "workload": "humaneval",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 3.472,
+      "tok_per_s": 1179.89,
+      "net_speedup": 1.023,
+      "accepted_tokens_per_step": 1.75
+    },
+    {
+      "method": "eagle3",
+      "K": 5,
+      "workload": "gsm8k",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 2.977,
+      "tok_per_s": 1375.74,
+      "net_speedup": 1.159,
+      "accepted_tokens_per_step": 1.7903
+    },
+    {
+      "method": "eagle3",
+      "K": 5,
+      "workload": "mt_bench",
+      "batch": 8,
+      "tokens": 4096,
+      "secs": 3.574,
+      "tok_per_s": 1146.0,
+      "net_speedup": 0.968,
+      "accepted_tokens_per_step": 1.7342
+    }
+  ]
+}

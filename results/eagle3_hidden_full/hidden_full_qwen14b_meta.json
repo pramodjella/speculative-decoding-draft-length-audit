@@ -1,0 +1,20 @@
+{
+  "target": "Qwen/Qwen3-14B",
+  "eagle_head": "AngelSlim/Qwen3-14B_eagle3",
+  "model": "qwen14b",
+  "n_positions_total": 44156,
+  "n_with_hidden": 43778,
+  "hidden_dim": 5120,
+  "patched": [
+    "deepseek_eagle3.Eagle3DeepseekV2ForCausalLM",
+    "deepseek_eagle3.Eagle3DeepseekV3ForCausalLM",
+    "llama_eagle3.Eagle3LlamaForCausalLM",
+    "qwen3_eagle3.Eagle3Qwen3ForCausalLM",
+    "llama.LlamaForCausalLM",
+    "qwen3.Qwen3ForCausalLM",
+    "qwen2.Qwen2ForCausalLM",
+    "SpecDecodingStats.observe_draft"
+  ],
+  "n_observe": 6308,
+  "parquet": "/root/out/eagle3_hidden_full/hidden_full_qwen14b.parquet"
+}

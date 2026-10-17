@@ -1,0 +1,22 @@
+{
+  "target": "Qwen/Qwen3-14B",
+  "eagle_head": "AngelSlim/Qwen3-14B_eagle3",
+  "model": "qwen14b",
+  "batch": 1,
+  "ctx_len": 8192,
+  "results": [
+    {
+      "method": "baseline",
+      "K": 0,
+      "workload": "quality",
+      "model": "qwen14b",
+      "batch": 1,
+      "ctx_len": 8192,
+      "tokens": 2048,
+      "secs": 24.452,
+      "tok_per_s": 83.76,
+      "net_speedup": 1.0,
+      "accepted_tokens_per_step": null
+    }
+  ]
+}

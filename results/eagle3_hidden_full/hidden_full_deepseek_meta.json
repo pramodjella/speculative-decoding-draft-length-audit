@@ -1,0 +1,20 @@
+{
+  "target": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+  "eagle_head": "yuhuili/EAGLE3-DeepSeek-R1-Distill-LLaMA-8B",
+  "model": "deepseek",
+  "n_positions_total": 60438,
+  "n_with_hidden": 59997,
+  "hidden_dim": 4096,
+  "patched": [
+    "deepseek_eagle3.Eagle3DeepseekV2ForCausalLM",
+    "deepseek_eagle3.Eagle3DeepseekV3ForCausalLM",
+    "llama_eagle3.Eagle3LlamaForCausalLM",
+    "qwen3_eagle3.Eagle3Qwen3ForCausalLM",
+    "llama.LlamaForCausalLM",
+    "qwen3.Qwen3ForCausalLM",
+    "qwen2.Qwen2ForCausalLM",
+    "SpecDecodingStats.observe_draft"
+  ],
+  "n_observe": 8634,
+  "parquet": "/root/out/eagle3_hidden_full/hidden_full_deepseek.parquet"
+}

@@ -1,0 +1,21 @@
+# Default experiment config. Edit MODEL_ID and the matrix for your study.
+seed: 0
+model_id: "meta-llama/Llama-3.1-8B-Instruct"   # swap for your target model
+dtype: "float16"
+device: "auto"
+output_csv: "results/metrics_all.csv"
+
+# Workloads / benchmarks to evaluate on (see README milestones).
+workloads:
+  - spec_bench
+  - mt_bench
+  - humaneval
+  - gsm8k
+
+# The experiment matrix is filled in per-roadmap (Milestone 3).
+# Each entry becomes one row of results/metrics_all.csv.
+experiment_matrix:
+  - name: "baseline_fp16"
+    expects: {note: "reference"}
+  - name: "method_setting_1"
+    expects: {note: "primary method"}

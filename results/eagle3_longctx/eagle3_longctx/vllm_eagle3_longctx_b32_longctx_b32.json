@@ -1,0 +1,20 @@
+{
+  "target": "meta-llama/Llama-3.1-8B-Instruct",
+  "eagle_head": "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B",
+  "batch": 32,
+  "ctx_len": 8192,
+  "results": [
+    {
+      "method": "baseline",
+      "K": 0,
+      "workload": "quality",
+      "batch": 32,
+      "ctx_len": 8192,
+      "tokens": 2048,
+      "secs": 2.008,
+      "tok_per_s": 1019.76,
+      "net_speedup": 1.0,
+      "accepted_tokens_per_step": null
+    }
+  ]
+}

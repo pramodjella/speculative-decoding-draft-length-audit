@@ -1,0 +1,273 @@
+{
+  "model": "llama8b",
+  "target": "meta-llama/Llama-3.1-8B-Instruct",
+  "n": 10,
+  "maxtok": 128,
+  "cycles": 4,
+  "natives": [
+    2,
+    3
+  ],
+  "KMAX": 7,
+  "tag": "r1",
+  "tps": {
+    "humaneval": {
+      "native2": [
+        136.45,
+        141.59,
+        139.52,
+        141.62
+      ],
+      "native3": [
+        139.5,
+        139.74,
+        137.65,
+        141.48
+      ],
+      "native7": [
+        118.97,
+        118.83,
+        118.94,
+        114.5
+      ],
+      "cum0.2": [
+        150.13,
+        150.73,
+        146.35,
+        150.63
+      ],
+      "cum0.05": [
+        149.54,
+        149.05,
+        145.24,
+        146.51
+      ]
+    },
+    "gsm8k": {
+      "native2": [
+        139.61,
+        138.96,
+        134.56,
+        137.48
+      ],
+      "native3": [
+        137.03,
+        136.35,
+        134.85,
+        137.69
+      ],
+      "native7": [
+        116.0,
+        116.85,
+        116.92,
+        116.42
+      ],
+      "cum0.2": [
+        147.14,
+        149.08,
+        144.65,
+        148.66
+      ],
+      "cum0.05": [
+        144.17,
+        140.49,
+        139.35,
+        142.97
+      ]
+    },
+    "mt_bench": {
+      "native2": [
+        109.34,
+        109.05,
+        107.0,
+        108.32
+      ],
+      "native3": [
+        102.05,
+        101.63,
+        101.32,
+        102.81
+      ],
+      "native7": [
+        81.59,
+        78.36,
+        81.31,
+        82.32
+      ],
+      "cum0.2": [
+        113.61,
+        113.62,
+        110.22,
+        111.45
+      ],
+      "cum0.05": [
+        108.67,
+        107.19,
+        106.27,
+        108.5
+      ]
+    }
+  },
+  "mean_drafted": {
+    "native2": 2.0,
+    "native3": 3.0,
+    "native7": 7.0,
+    "cum0.2": 2.3,
+    "cum0.05": 3.22
+  },
+  "summary": {
+    "humaneval": {
+      "native_means": {
+        "native2": 139.79,
+        "native3": 139.59,
+        "native7": 117.81
+      },
+      "cum_arms": {
+        "cum0.2": {
+          "vs_each_native": {
+            "native2": {
+              "mean_gain_pct": 6.93,
+              "se": 0.94
+            },
+            "native3": {
+              "mean_gain_pct": 7.07,
+              "se": 0.34
+            },
+            "native7": {
+              "mean_gain_pct": 26.91,
+              "se": 1.52
+            }
+          },
+          "vs_strongest_native": {
+            "config": "native2",
+            "mean_gain_pct": 6.93,
+            "se": 0.94
+          }
+        },
+        "cum0.05": {
+          "vs_each_native": {
+            "native2": {
+              "mean_gain_pct": 5.6,
+              "se": 1.2
+            },
+            "native3": {
+              "mean_gain_pct": 5.73,
+              "se": 0.7
+            },
+            "native7": {
+              "mean_gain_pct": 25.3,
+              "se": 1.04
+            }
+          },
+          "vs_strongest_native": {
+            "config": "native2",
+            "mean_gain_pct": 5.6,
+            "se": 1.2
+          }
+        }
+      }
+    },
+    "gsm8k": {
+      "native_means": {
+        "native2": 137.65,
+        "native3": 136.48,
+        "native7": 116.55
+      },
+      "cum_arms": {
+        "cum0.2": {
+          "vs_each_native": {
+            "native2": {
+              "mean_gain_pct": 7.08,
+              "se": 0.51
+            },
+            "native3": {
+              "mean_gain_pct": 7.99,
+              "se": 0.41
+            },
+            "native7": {
+              "mean_gain_pct": 26.46,
+              "se": 0.81
+            }
+          },
+          "vs_strongest_native": {
+            "config": "native2",
+            "mean_gain_pct": 7.08,
+            "se": 0.51
+          }
+        },
+        "cum0.05": {
+          "vs_each_native": {
+            "native2": {
+              "mean_gain_pct": 2.98,
+              "se": 0.56
+            },
+            "native3": {
+              "mean_gain_pct": 3.85,
+              "se": 0.42
+            },
+            "native7": {
+              "mean_gain_pct": 21.63,
+              "se": 1.01
+            }
+          },
+          "vs_strongest_native": {
+            "config": "native2",
+            "mean_gain_pct": 2.98,
+            "se": 0.56
+          }
+        }
+      }
+    },
+    "mt_bench": {
+      "native_means": {
+        "native2": 108.43,
+        "native3": 101.95,
+        "native7": 80.89
+      },
+      "cum_arms": {
+        "cum0.2": {
+          "vs_each_native": {
+            "native2": {
+              "mean_gain_pct": 3.5,
+              "se": 0.28
+            },
+            "native3": {
+              "mean_gain_pct": 10.08,
+              "se": 0.75
+            },
+            "native7": {
+              "mean_gain_pct": 38.8,
+              "se": 1.95
+            }
+          },
+          "vs_strongest_native": {
+            "config": "native2",
+            "mean_gain_pct": 3.5,
+            "se": 0.28
+          }
+        },
+        "cum0.05": {
+          "vs_each_native": {
+            "native2": {
+              "mean_gain_pct": -0.71,
+              "se": 0.33
+            },
+            "native3": {
+              "mean_gain_pct": 5.59,
+              "se": 0.29
+            },
+            "native7": {
+              "mean_gain_pct": 33.12,
+              "se": 1.15
+            }
+          },
+          "vs_strongest_native": {
+            "config": "native2",
+            "mean_gain_pct": -0.71,
+            "se": 0.33
+          }
+        }
+      }
+    }
+  }
+}

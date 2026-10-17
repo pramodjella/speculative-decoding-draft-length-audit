@@ -1,0 +1,20 @@
+{
+  "target": "meta-llama/Llama-3.1-8B-Instruct",
+  "eagle_head": "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B",
+  "model": "llama8b",
+  "n_positions_total": 41839,
+  "n_with_hidden": 41510,
+  "hidden_dim": 4096,
+  "patched": [
+    "deepseek_eagle3.Eagle3DeepseekV2ForCausalLM",
+    "deepseek_eagle3.Eagle3DeepseekV3ForCausalLM",
+    "llama_eagle3.Eagle3LlamaForCausalLM",
+    "qwen3_eagle3.Eagle3Qwen3ForCausalLM",
+    "llama.LlamaForCausalLM",
+    "qwen3.Qwen3ForCausalLM",
+    "qwen2.Qwen2ForCausalLM",
+    "SpecDecodingStats.observe_draft"
+  ],
+  "n_observe": 5977,
+  "parquet": "/root/out/eagle3_hidden_full/hidden_full_llama8b.parquet"
+}
