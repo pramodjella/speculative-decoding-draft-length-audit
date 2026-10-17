@@ -26,7 +26,7 @@ signal-less rule is the only thing that works.**
 | Target model | The big model whose output we actually want (e.g. Llama-3.1-8B) |
 | K / draft length / depth | How many words to guess before checking |
 | Acceptance | A guess is "accepted" if the big model would have written the same word |
-| Tuned fixed K | The best *constant* K found by trying them all — our honest baseline |
+| Tuned fixed K | The best *constant* K found by trying them all — our baseline |
 | Oracle | An impossible policy that knows the future: always guesses exactly the right amount |
 | Hidden state | The draft model's internal 4096-number "thought vector" for each guess |
 | Probe | A small classifier trained to read the hidden state and predict acceptance |
@@ -131,7 +131,7 @@ passes when they don't.
      so it is clairvoyant, not merely well-informed).
 4. **Result (Llama-3.1-8B, 8 folds):** deployable **+16.8 ±2.6%** of the oracle span,
    oracle-threshold **+18.1 ±2.6%**, so the paired **threshold-selection loss is
-   +0.0028 ±0.0015 speedup points — 1.2% of the span**. Threshold choice is genuinely
+   +0.0028 ±0.0015 speedup points — 1.2% of the span**. Threshold choice is
    exhausted. Both sit ~80% below the oracle: **only ~1/5 of the oracle gap is reachable;
    ~80% is coin-flip randomness in the verification outcome that nothing available before
    checking can predict.**
