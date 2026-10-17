@@ -213,13 +213,13 @@ controller does not realize this end-to-end, so tuned fixed length remains the s
 <!-- superseded-block: end -->
 
 > **Which artifact the paper quotes.** Everything above is the original *un-paired* ladder
-> (`analyze_bayes_ceiling.py` -> `bayes_ceiling.json`). Table I of the paper is the **paired
+> (`analyze_bayes_ceiling.py` -> `bayes_ceiling.json`). The paper's decomposition table is the **paired
 > within-fold** rerun: `analyze_bayes_ceiling_paired.py` -> `bayes_ceiling_paired.json`, in
 > which the ceiling bounds the deployable probe on the same test rows. Numbers in
 > this section (+2.4-3.4% net, +18.3%/+4.3%) are the superseded un-paired values and are kept
 > for the audit trail only -- do not quote them. The paired values are +3.1/+2.0/+2.5% net.
 >
-> **Span convention, for anyone reconciling Table I by hand.** Recovery is computed per fold
+> **Span convention, for anyone reconciling the decomposition table by hand.** Recovery is computed per fold
 > and averaged, so each fold's recovery is a fraction of *its own* oracle span. The paper's
 > "perfect threshold choice adds between 1.0 and 3.2% of the span" follows the same per-fold
 > convention. The `threshold_selection_loss_pct_of_span` field in `bayes_ceiling_paired.json`
@@ -337,6 +337,35 @@ loses.
 Artifacts: [results/perstep_signal/policy_zoo.md](results/perstep_signal/policy_zoo.md),
 `results/{eagle_zoo,eagle_zoo_verify,eagle_zoo_verify_iid,eagle_paired}.json`.
 Scripts: `modal_eagle_zoo.py`, `modal_eagle_zoo_verify.py`, `modal_eagle_paired.py`.
+
+### E7 — Spec-Bench rerun of the fair-baseline result (vLLM 0.24.0, H100, B=1/4/8)
+
+Goal: repeat the fair-baseline comparison on a public benchmark with longer outputs, sweep
+batch size, and check outputs against non-speculative greedy decoding token by token.
+
+- Workload: all 480 Spec-Bench prompts in six categories (MT-Bench first turns, translation,
+  summarization, QA, math reasoning, RAG), chat template, greedy, 512 new tokens.
+- Arms: native fixed-K vLLM engines and the patched K=7 engine running cum(0.2), in one
+  process. Each prompt is timed under every arm with the arm order rotated; gains are paired
+  per prompt with bootstrap 95% intervals.
+- Best fixed depth on this workload: K=4 or 5 (K=2 for translation). cum(0.2) against it:
+  **+7.7% [+6.9, +8.5]** pooled, +4.9 to +8.0% per category with every interval above zero,
+  realized depth 3.98. Against native K=2, 3 (the fair-baseline configuration) on two fresh
+  containers: +9.5% and +11.7%.
+- Batch, against the same tuned baseline: +2.4% [−1.7, +5.8] at B=4 and +2.9% [−1.9, +7.1]
+  at B=8.
+- Padded fixed depths K=2..5 on 8 prompts per category: best depth 4 or 5 in five of six
+  categories; cum(0.2) beats the best padded depth by +6.4% [+3.8, +8.5].
+- Token identity: 78 to 84% of outputs match the non-speculative greedy reference token for
+  token, for stock speculative decoding and for cum(0.2) alike. Every divergence is at a
+  position where the target's top-1 minus top-2 log-probability gap is at most 0.25 nats.
+
+Artifacts: `results/specbench/` — `specbench_spec_t1.json` (native K=4, 5 and padded K=2),
+`specbench_spec_c1.json`, `specbench_spec_c2.json` (native K=2, 3), `specbench_spec_tb1.json`
+and `specbench_spec_b1.json` (batch), `specbench_reference_full.json` (non-speculative
+reference with top-2 log-probabilities), `summary.md`, `summary.json`.
+Scripts: `modal_vllm_specbench_rerun.py` (runs), `analyze_specbench_rerun.py` (summary,
+tables and figure; runs on a CPU).
 
 ## Scope note
 On a strong, cheap EAGLE-3 head the deployable answer is a tuned fixed K — adaptive

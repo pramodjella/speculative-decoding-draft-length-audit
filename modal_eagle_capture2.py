@@ -7,7 +7,7 @@ accepted path (best_candidate, accept_length, candidates) + target logits.
 Diagnostic-first: dumps draft-logit shape (reduced vocab?) and VALIDATES the draft
 node->path mapping (draft argmax must == drafted token on accepted positions, like
 the target check). If valid, saves per-accepted-position draft entropy/margin +
-target entropy/dist for SVIP/BCSD. Recipe: transformers 4.53.1 / torch 2.6.0.
+target entropy/dist for SVIP. Recipe: transformers 4.53.1 / torch 2.6.0.
 """
 import os, json
 import modal

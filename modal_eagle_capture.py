@@ -115,6 +115,6 @@ def main():
     r = run.remote()
     print(f"\n===== EAGLE-ref capture: steps={r['steps']} MAT={r['mat']} "
           f"accepted-match={r['match_rate']}% =====")
-    print("  PAIRING VALID (correct substrate!) -> add draft-q hook for SVIP/BCSD"
+    print("  PAIRING VALID (correct substrate!) -> add draft-q hook for SVIP"
           if r["match_rate"] > 95 else
           f"  !! match {r['match_rate']}% -- alignment still off, inspect")

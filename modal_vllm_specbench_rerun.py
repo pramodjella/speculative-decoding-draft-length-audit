@@ -1,6 +1,6 @@
-"""Spec-Bench rerun of the fair-baseline result (Table VI) for MLSys 2027.
+"""Spec-Bench rerun of the fair-baseline result (the paper's fair-baseline table).
 
-Table VI used 10 prompts per workload, 128 output tokens and B=1. This script reruns the same
+That table used 10 prompts per workload, 128 output tokens and B=1. This script reruns the same
 comparison at scale. What changes from modal_vllm_fairbase.py:
 
   workload  Spec-Bench, 480 prompts in 6 categories (vendored at data/spec_bench/question.jsonl;
@@ -16,7 +16,7 @@ comparison at scale. What changes from modal_vllm_fairbase.py:
   batch     prompts in chunks of B with the batch-level mean-confidence rule, as in
             modal_vllm_fairbase2.py, paired per chunk.
 
-Unchanged: vLLM pinned to 0.24.0 (the Table VI version; later releases moved the draft loop and
+Unchanged: vLLM pinned to 0.24.0 (the fair-baseline version; later releases moved the draft loop and
 the patch would silently miss it), H100, enforce_eager, native K=2 and K=3 engines with their
 true verification budgets, the patched K=7 engine for cum(0.2), and the same fail-fast gates.
 
@@ -139,7 +139,7 @@ def _install_patch(EL):
 
     Arm kinds: ("nofire", 0) stock behaviour; ("fixed", k) stop after k drafted tokens and pad;
     ("cum", thr) stop when the batch-mean running product of top-1 probs falls below thr.
-    At B=1 the batch mean is the single request's product, i.e. Table VI's rule exactly.
+    At B=1 the batch mean is the single request's product, i.e. the fair-baseline rule exactly.
     """
     import importlib
     import pkgutil

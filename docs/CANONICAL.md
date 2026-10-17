@@ -116,7 +116,7 @@ Standard speculative-decoding cost model (Leviathan et al. 2023; Chen et al. 202
 numerator taken as the **measured** mean accepted-per-step rather than the papers' modelled
 `(1-a^(K+1))/(1-a)`, which assumes independent per-position acceptance. That assumption is
 false on our data: lag-1 autocorrelation of per-position d_TV is **rho = 0.307** vs a
-position-preserving shuffled null of 0.000 +- 0.0065 (z = 47), the correlation control (BCSD repo).
+position-preserving shuffled null of 0.000 +- 0.0065 (z = 47), the correlation control (a separate repository).
 
 **Two values of C are legitimately in use — do not "reconcile" them:**
 

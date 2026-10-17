@@ -15,7 +15,7 @@ plt.rcParams.update({"font.size": 11, "axes.spines.top": False, "axes.spines.rig
 # Source is the CORRECTED paired-within-fold ladder (analyze_bayes_ceiling_paired.py).
 # The superseded un-paired bayes_ceiling.json scored the deployable and ceiling rungs on
 # DIFFERENT data, so the ceiling did not bound the probe it is supposed to bound; plotting
-# it put the "probe (deploy)" bar above "probe (oracle thr.)" and contradicted Table I.
+# it put the "probe (deploy)" bar above "probe (oracle thr.)" and contradicted the decomposition table.
 # Rung naming follows docs/CANONICAL.md: the fourth rung is "probe (oracle thr.)". The retired
 # name Bayes-(hidden) overclaimed it: it removes threshold-selection error only, not
 # hypothesis-class error, so it bounds this probe family and not any reader of the hidden state.
@@ -34,7 +34,7 @@ ax.set_ylim(min(vals) - 0.05, max(vals) + 0.075)
 ax.set_ylabel("cost-model speedup")
 for b, v in zip(bars, vals):
     ax.text(b.get_x() + b.get_width() / 2, v + 0.008, f"{v:.3f}", ha="center", fontsize=10)
-# Quote the split in words, not digits: the exact per-fold percentages live in Table I, and
+# Quote the split in words, not digits: the exact per-fold percentages live in the decomposition table, and
 # a rounded number here that disagrees with the table by a tenth is a referee magnet.
 # Aim inside the bar, not at its top edge: an arrow tip landing on the bar-top value label
 # renders as a strike-through of the number.
@@ -193,7 +193,7 @@ fig, ax = plt.subplots(figsize=(5.2, 3.3))
 x = np.arange(len(vals))
 bars = ax.bar(x, vals, color=cols, width=0.62)
 ax.axhline(0, color="black", lw=0.9)
-# Whole percentages only. The paired ladder puts the oracle span at 18.0 while Table I quotes
+# Whole percentages only. The paired ladder puts the oracle span at 18.0 while the decomposition table quotes
 # the pooled 18.1; the gap is an aggregation convention, not a disagreement, and printing one
 # decimal here would advertise it. Exact values with error bars live in the tables.
 for b, v in zip(bars, vals):

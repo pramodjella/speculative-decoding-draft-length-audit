@@ -2,7 +2,9 @@
 
 Code, raw measurements and analysis scripts for the submission. Author names, the
 affiliation and the source repository link have been removed for double-blind review, and
-people's names in code comments are replaced by `[name withheld]`. Nothing else is changed.
+people's names in comments and notes are replaced by `[name withheld]`. Some notes still refer
+to files that are not part of this copy (the paper source, a project roadmap and a literature
+spreadsheet).
 
 ## What is measured
 
@@ -62,9 +64,10 @@ need an H100 and a [Modal](https://modal.com) account. Everything else reads the
 | Verification cost against K | `results/verify_microbench.json` | `modal_verify_microbench.py` | – |
 | Batch collapse, long context | `results/eagle3_batch/`, `results/eagle3_longctx*/` | `modal_vllm_eagle3.py`, `modal_*longctx*.py` | `analyze_eagle3_batch.py`, `analyze_eagle3_longctx.py` |
 
-`DELIVERABLES.md` maps each experiment (E1 to E6) to the script and file behind it.
-`docs/CANONICAL.md` lists every number with its source. Superseded values are kept there and
-in `DELIVERABLES.md` under a clear banner, so the history of each number can be followed.
+`DELIVERABLES.md` maps each experiment (E1 to E7) to the script and file behind it.
+`docs/CANONICAL.md` lists the numbers of the original experiments with their sources; the
+Spec-Bench numbers are in `results/specbench/summary.md`. Superseded values are kept in both
+documents under a clear banner, so the history of each number can be followed.
 
 ## How the timing was done
 
@@ -92,6 +95,13 @@ configs/, data/            experiment configs and dataset cards
 notebooks/                 early exploration
 scripts/check_stale.sh     checks shipped documents for retired numbers
 ```
+
+## Working notes
+
+The `*_findings.md`, `*_summary.md` and `insight_report*.md` files under `results/` are notes
+written while the project ran. Some describe earlier phases (for example, simulator-only
+results) and use the table numbers of earlier drafts. Where they differ from the paper, the
+paper, this README and `DELIVERABLES.md` are current.
 
 ## Known gaps
 
