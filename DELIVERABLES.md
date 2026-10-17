@@ -144,7 +144,7 @@ trained probe on the full hidden state would make 'no signal' much harder to arg
 logistic regression + 2-layer MLP (256→64) + PCA-50 → logistic regression in 8-fold
 gen-split CV. Threshold chosen on TRAIN; cost model MAT/(1+0.15·K).
 
-**Result: the draft hidden state carries genuinely exploitable per-step signal — for
+**Result: the draft hidden state carries exploitable per-step signal — for
 instruction models. This is a positive result, and it localizes the signal precisely.**
 
 > **Data-integrity note.** The first pass of this audit grouped draft blocks by
@@ -185,7 +185,7 @@ Two measurements, both on held-out generations (8-fold gen-split CV):
    the reasoning model (DeepSeek-R1) has none — the probe collapses to K=1 even with the
    oracle threshold. This matches E2's reasoning-model negative.
 3. **Permutation-verified.** Shuffling accept labels across blocks collapses Llama recovery
-   from +17.8% to −4.9% (`analyze_bayes_ceiling_control.py`) — the gain is genuine signal,
+   from +17.8% to −4.9% (`analyze_bayes_ceiling_control.py`) — the gain is signal,
    not a leak.
 4. **The rest of the oracle is irreducible.** Bayes(hidden) ≈ deploy ≪ oracle: ~4/5 of the
    per-step oracle ceiling is aleatoric realization variance that no pre-verification signal
@@ -215,7 +215,7 @@ controller does not realize this end-to-end, so tuned fixed length remains the s
 > **Which artifact the paper quotes.** Everything above is the original *un-paired* ladder
 > (`analyze_bayes_ceiling.py` -> `bayes_ceiling.json`). Table I of the paper is the **paired
 > within-fold** rerun: `analyze_bayes_ceiling_paired.py` -> `bayes_ceiling_paired.json`, in
-> which the ceiling genuinely bounds the deployable probe on the same test rows. Numbers in
+> which the ceiling bounds the deployable probe on the same test rows. Numbers in
 > this section (+2.4-3.4% net, +18.3%/+4.3%) are the superseded un-paired values and are kept
 > for the audit trail only -- do not quote them. The paired values are +3.1/+2.0/+2.5% net.
 >
@@ -279,7 +279,7 @@ Artifacts: [results/perstep_signal/wallclock_eagle.md](results/perstep_signal/wa
 
 ### E6 — Policy-Zoo Audit + Paired Benchmarking (main-track extension)
 
-Goal: does ANY published-style draft-stopping policy beat a tuned fixed depth under honest
+Goal: does ANY published-style draft-stopping policy beat a tuned fixed depth under paired
 evaluation? Four policies (SVIP-entropy, margin, SADDLE/PACER-style cumulative-probability,
 SpecDec++-style trained hidden probe) through the same verified in-loop codepath
 (`modal_eagle_zoo.py`), then an escalating verification ladder that itself became a finding.
@@ -338,7 +338,7 @@ Artifacts: [results/perstep_signal/policy_zoo.md](results/perstep_signal/policy_
 `results/{eagle_zoo,eagle_zoo_verify,eagle_zoo_verify_iid,eagle_paired}.json`.
 Scripts: `modal_eagle_zoo.py`, `modal_eagle_zoo_verify.py`, `modal_eagle_paired.py`.
 
-## Honest scope note
+## Scope note
 On a strong, cheap EAGLE-3 head the deployable answer is a tuned fixed K — adaptive
 control's realisable gain is ~2% at request level. The scientifically interesting,
 reproducible finding is the **gap between the large per-step oracle headroom (+25%) and
