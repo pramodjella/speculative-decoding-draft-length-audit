@@ -154,6 +154,72 @@
     },
     {
       "mode": "spec",
+      "tag": "t2",
+      "target": "meta-llama/Llama-3.1-8B-Instruct",
+      "eagle": "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B",
+      "vllm": "0.24.0",
+      "torch": "2.11.0+cu130",
+      "gpu": "NVIDIA H100 80GB HBM3",
+      "maxtok": 512,
+      "thr": 0.2,
+      "kmax": 7,
+      "natives": [
+        4,
+        5
+      ],
+      "max_model_len": 4096,
+      "started_unix": 1792377380.2896705,
+      "phases": [
+        "bracket",
+        "main"
+      ],
+      "batches": [
+        4,
+        8
+      ],
+      "truncated": false,
+      "extras": [
+        "fixed2"
+      ],
+      "bracket_per_cat": 0,
+      "elapsed_s": 2100.0,
+      "est_usd": 2.57
+    },
+    {
+      "mode": "spec",
+      "tag": "t3",
+      "target": "meta-llama/Llama-3.1-8B-Instruct",
+      "eagle": "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B",
+      "vllm": "0.24.0",
+      "torch": "2.11.0+cu130",
+      "gpu": "NVIDIA H100 80GB HBM3",
+      "maxtok": 512,
+      "thr": 0.2,
+      "kmax": 7,
+      "natives": [
+        4,
+        5
+      ],
+      "max_model_len": 4096,
+      "started_unix": 1792379781.8967357,
+      "phases": [
+        "bracket",
+        "main"
+      ],
+      "batches": [
+        4,
+        8
+      ],
+      "truncated": false,
+      "extras": [
+        "fixed2"
+      ],
+      "bracket_per_cat": 0,
+      "elapsed_s": 2411.7,
+      "est_usd": 2.95
+    },
+    {
+      "mode": "spec",
       "tag": "tb1",
       "target": "meta-llama/Llama-3.1-8B-Instruct",
       "eagle": "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B",
@@ -333,6 +399,22 @@
         },
         "tps_adapt": 173.71,
         "depth": 3.98
+      },
+      "all_best_per_category": {
+        "n": 480,
+        "gain": 9.38,
+        "ci": [
+          8.67,
+          10.13
+        ],
+        "best_per_category": {
+          "mt_bench": "native3",
+          "translation": "native2",
+          "summarization": "native3",
+          "qa": "native3",
+          "math_reasoning": "native3",
+          "rag": "native3"
+        }
       }
     },
     "c2": {
@@ -440,6 +522,22 @@
         },
         "tps_adapt": 123.65,
         "depth": 3.98
+      },
+      "all_best_per_category": {
+        "n": 480,
+        "gain": 11.7,
+        "ci": [
+          10.94,
+          12.5
+        ],
+        "best_per_category": {
+          "mt_bench": "native3",
+          "translation": "native2",
+          "summarization": "native3",
+          "qa": "native3",
+          "math_reasoning": "native3",
+          "rag": "native3"
+        }
       }
     },
     "t1": {
@@ -554,6 +652,282 @@
         },
         "tps_adapt": 160.5,
         "depth": 3.98
+      },
+      "all_best_per_category": {
+        "n": 480,
+        "gain": 6.98,
+        "ci": [
+          6.23,
+          7.65
+        ],
+        "best_per_category": {
+          "mt_bench": "native5",
+          "translation": "fixed2",
+          "summarization": "native4",
+          "qa": "native4",
+          "math_reasoning": "native5",
+          "rag": "native4"
+        }
+      }
+    },
+    "t2": {
+      "mt_bench": {
+        "n": 80,
+        "gain": 7.05,
+        "ci": [
+          4.98,
+          8.4
+        ],
+        "best_native": "native5",
+        "tps": {
+          "fixed2": 165.32,
+          "native4": 184.19,
+          "native5": 184.28
+        },
+        "tps_adapt": 197.28,
+        "depth": 4.5
+      },
+      "translation": {
+        "n": 80,
+        "gain": 4.65,
+        "ci": [
+          3.19,
+          6.29
+        ],
+        "best_native": "fixed2",
+        "tps": {
+          "fixed2": 130.9,
+          "native4": 123.99,
+          "native5": 118.42
+        },
+        "tps_adapt": 136.99,
+        "depth": 2.85
+      },
+      "summarization": {
+        "n": 80,
+        "gain": 7.42,
+        "ci": [
+          5.8,
+          9.07
+        ],
+        "best_native": "native4",
+        "tps": {
+          "fixed2": 162.02,
+          "native4": 177.01,
+          "native5": 174.36
+        },
+        "tps_adapt": 190.15,
+        "depth": 4.1
+      },
+      "qa": {
+        "n": 80,
+        "gain": 7.06,
+        "ci": [
+          3.78,
+          9.81
+        ],
+        "best_native": "native4",
+        "tps": {
+          "fixed2": 146.27,
+          "native4": 158.45,
+          "native5": 158.07
+        },
+        "tps_adapt": 169.63,
+        "depth": 3.46
+      },
+      "math_reasoning": {
+        "n": 80,
+        "gain": 6.6,
+        "ci": [
+          5.24,
+          7.54
+        ],
+        "best_native": "native5",
+        "tps": {
+          "fixed2": 175.1,
+          "native4": 198.62,
+          "native5": 198.68
+        },
+        "tps_adapt": 211.79,
+        "depth": 4.89
+      },
+      "rag": {
+        "n": 80,
+        "gain": 10.53,
+        "ci": [
+          7.95,
+          13.0
+        ],
+        "best_native": "native4",
+        "tps": {
+          "fixed2": 169.75,
+          "native4": 188.57,
+          "native5": 187.81
+        },
+        "tps_adapt": 208.42,
+        "depth": 4.05
+      },
+      "all": {
+        "n": 480,
+        "gain": 7.62,
+        "ci": [
+          6.69,
+          8.55
+        ],
+        "best_native": "native4",
+        "tps": {
+          "fixed2": 160.64,
+          "native4": 175.61,
+          "native5": 174.25
+        },
+        "tps_adapt": 188.99,
+        "depth": 3.98
+      },
+      "all_best_per_category": {
+        "n": 480,
+        "gain": 7.17,
+        "ci": [
+          6.06,
+          7.87
+        ],
+        "best_per_category": {
+          "mt_bench": "native5",
+          "translation": "fixed2",
+          "summarization": "native4",
+          "qa": "native4",
+          "math_reasoning": "native5",
+          "rag": "native4"
+        }
+      }
+    },
+    "t3": {
+      "mt_bench": {
+        "n": 80,
+        "gain": 5.78,
+        "ci": [
+          4.93,
+          6.69
+        ],
+        "best_native": "native5",
+        "tps": {
+          "fixed2": 146.81,
+          "native4": 165.47,
+          "native5": 167.13
+        },
+        "tps_adapt": 176.8,
+        "depth": 4.5
+      },
+      "translation": {
+        "n": 80,
+        "gain": 5.03,
+        "ci": [
+          3.69,
+          6.51
+        ],
+        "best_native": "fixed2",
+        "tps": {
+          "fixed2": 107.84,
+          "native4": 102.57,
+          "native5": 98.08
+        },
+        "tps_adapt": 113.26,
+        "depth": 2.85
+      },
+      "summarization": {
+        "n": 80,
+        "gain": 7.19,
+        "ci": [
+          5.67,
+          8.72
+        ],
+        "best_native": "native4",
+        "tps": {
+          "fixed2": 138.65,
+          "native4": 152.68,
+          "native5": 151.58
+        },
+        "tps_adapt": 163.66,
+        "depth": 4.1
+      },
+      "qa": {
+        "n": 80,
+        "gain": 7.4,
+        "ci": [
+          5.21,
+          9.04
+        ],
+        "best_native": "native4",
+        "tps": {
+          "fixed2": 134.88,
+          "native4": 146.64,
+          "native5": 146.51
+        },
+        "tps_adapt": 157.5,
+        "depth": 3.46
+      },
+      "math_reasoning": {
+        "n": 80,
+        "gain": 5.11,
+        "ci": [
+          3.2,
+          6.76
+        ],
+        "best_native": "native4",
+        "tps": {
+          "fixed2": 144.66,
+          "native4": 167.33,
+          "native5": 165.98
+        },
+        "tps_adapt": 175.88,
+        "depth": 4.89
+      },
+      "rag": {
+        "n": 80,
+        "gain": 7.54,
+        "ci": [
+          4.13,
+          10.69
+        ],
+        "best_native": "native5",
+        "tps": {
+          "fixed2": 136.71,
+          "native4": 153.46,
+          "native5": 155.07
+        },
+        "tps_adapt": 166.75,
+        "depth": 4.05
+      },
+      "all": {
+        "n": 480,
+        "gain": 7.2,
+        "ci": [
+          6.48,
+          7.88
+        ],
+        "best_native": "native4",
+        "tps": {
+          "fixed2": 139.04,
+          "native4": 153.46,
+          "native5": 153.0
+        },
+        "tps_adapt": 164.51,
+        "depth": 3.98
+      },
+      "all_best_per_category": {
+        "n": 480,
+        "gain": 6.38,
+        "ci": [
+          5.65,
+          6.97
+        ],
+        "best_per_category": {
+          "mt_bench": "native5",
+          "translation": "fixed2",
+          "summarization": "native4",
+          "qa": "native4",
+          "math_reasoning": "native4",
+          "rag": "native5"
+        }
       }
     }
   },
@@ -567,6 +941,16 @@
       "native3"
     ],
     "t1": [
+      "fixed2",
+      "native4",
+      "native5"
+    ],
+    "t2": [
+      "fixed2",
+      "native4",
+      "native5"
+    ],
+    "t3": [
       "fixed2",
       "native4",
       "native5"
@@ -588,8 +972,8 @@
           "n": 10,
           "gain": 8.26,
           "ci": [
-            2.79,
-            13.85
+            2.59,
+            13.98
           ],
           "best_native": "native3",
           "tps": {
@@ -603,8 +987,8 @@
           "n": 10,
           "gain": 7.05,
           "ci": [
-            0.74,
-            17.75
+            0.65,
+            17.7
           ],
           "best_native": "native2",
           "tps": {
@@ -618,8 +1002,8 @@
           "n": 10,
           "gain": 6.58,
           "ci": [
-            4.16,
-            8.62
+            4.01,
+            8.51
           ],
           "best_native": "native3",
           "tps": {
@@ -633,8 +1017,8 @@
           "n": 10,
           "gain": 12.48,
           "ci": [
-            4.98,
-            19.13
+            5.16,
+            19.18
           ],
           "best_native": "native3",
           "tps": {
@@ -648,8 +1032,8 @@
           "n": 10,
           "gain": 5.99,
           "ci": [
-            2.53,
-            9.16
+            2.57,
+            9.09
           ],
           "best_native": "native3",
           "tps": {
@@ -663,8 +1047,8 @@
           "n": 10,
           "gain": 4.12,
           "ci": [
-            -0.1,
-            8.94
+            -0.21,
+            9.15
           ],
           "best_native": "native3",
           "tps": {
@@ -678,8 +1062,8 @@
           "n": 60,
           "gain": 7.95,
           "ci": [
-            5.58,
-            10.37
+            5.53,
+            10.51
           ],
           "best_native": "native3",
           "tps": {
@@ -695,7 +1079,7 @@
           "n": 5,
           "gain": 0.16,
           "ci": [
-            -3.01,
+            -3.13,
             3.15
           ],
           "best_native": "native3",
@@ -711,7 +1095,7 @@
           "gain": 0.96,
           "ci": [
             -1.55,
-            1.89
+            1.88
           ],
           "best_native": "native3",
           "tps": {
@@ -741,7 +1125,7 @@
           "gain": 3.62,
           "ci": [
             -3.11,
-            12.38
+            12.32
           ],
           "best_native": "native3",
           "tps": {
@@ -785,8 +1169,8 @@
           "n": 30,
           "gain": 3.73,
           "ci": [
-            1.41,
-            6.17
+            1.49,
+            6.24
           ],
           "best_native": "native3",
           "tps": {
@@ -804,8 +1188,8 @@
           "n": 10,
           "gain": -1.88,
           "ci": [
-            -13.32,
-            7.02
+            -13.48,
+            6.76
           ],
           "best_native": "native4",
           "tps": {
@@ -820,8 +1204,8 @@
           "n": 10,
           "gain": -1.42,
           "ci": [
-            -7.34,
-            3.39
+            -7.59,
+            3.43
           ],
           "best_native": "fixed2",
           "tps": {
@@ -836,8 +1220,8 @@
           "n": 10,
           "gain": 4.06,
           "ci": [
-            0.78,
-            7.24
+            0.67,
+            7.15
           ],
           "best_native": "native5",
           "tps": {
@@ -852,8 +1236,8 @@
           "n": 10,
           "gain": 5.54,
           "ci": [
-            -2.64,
-            12.55
+            -2.92,
+            12.56
           ],
           "best_native": "native5",
           "tps": {
@@ -868,8 +1252,8 @@
           "n": 10,
           "gain": -4.71,
           "ci": [
-            -12.55,
-            2.69
+            -12.59,
+            2.82
           ],
           "best_native": "native5",
           "tps": {
@@ -884,8 +1268,8 @@
           "n": 10,
           "gain": 6.62,
           "ci": [
-            1.33,
-            14.59
+            1.62,
+            14.66
           ],
           "best_native": "native4",
           "tps": {
@@ -900,8 +1284,8 @@
           "n": 60,
           "gain": 2.35,
           "ci": [
-            -1.65,
-            5.8
+            -1.63,
+            5.77
           ],
           "best_native": "native4",
           "tps": {
@@ -918,7 +1302,7 @@
           "n": 5,
           "gain": -1.6,
           "ci": [
-            -10.64,
+            -10.8,
             6.5
           ],
           "best_native": "native4",
@@ -934,7 +1318,7 @@
           "n": 5,
           "gain": 11.69,
           "ci": [
-            2.78,
+            3.32,
             20.58
           ],
           "best_native": "fixed2",
@@ -966,7 +1350,7 @@
           "n": 5,
           "gain": 3.16,
           "ci": [
-            -3.54,
+            -4.06,
             9.72
           ],
           "best_native": "native5",
@@ -999,7 +1383,7 @@
           "gain": 16.97,
           "ci": [
             3.38,
-            34.76
+            32.6
           ],
           "best_native": "native4",
           "tps": {
@@ -1014,8 +1398,8 @@
           "n": 30,
           "gain": 2.88,
           "ci": [
-            -1.91,
-            7.11
+            -1.87,
+            7.22
           ],
           "best_native": "native4",
           "tps": {
@@ -1126,29 +1510,29 @@
   },
   "identity_main": {
     "cum0.2": {
-      "n": 1440,
-      "identical": 1133,
-      "identical_pct": 78.7,
+      "n": 2400,
+      "identical": 1875,
+      "identical_pct": 78.1,
       "per_cat_identical_pct": {
         "mt_bench": 85.0,
         "translation": 98.8,
-        "summarization": 45.0,
+        "summarization": 40.0,
         "qa": 78.8,
         "math_reasoning": 98.8,
-        "rag": 65.8
+        "rag": 67.5
       },
-      "first_div_median": 93.0,
+      "first_div_median": 91.0,
       "margin_at_div": {
         "median": 0.125,
-        "p95": 0.2125,
+        "p95": 0.25,
         "max": 0.25,
-        "share_below_0.1": 0.469,
+        "share_below_0.1": 0.48,
         "share_below_0.5": 1.0
       }
     },
     "fixed2": {
-      "n": 480,
-      "identical": 373,
+      "n": 1440,
+      "identical": 1119,
       "identical_pct": 77.7,
       "per_cat_identical_pct": {
         "mt_bench": 86.2,
@@ -1161,7 +1545,7 @@
       "first_div_median": 82.0,
       "margin_at_div": {
         "median": 0.125,
-        "p95": 0.2125,
+        "p95": 0.25,
         "max": 0.25,
         "share_below_0.1": 0.449,
         "share_below_0.5": 1.0
@@ -1210,8 +1594,8 @@
       }
     },
     "native4": {
-      "n": 480,
-      "identical": 384,
+      "n": 1440,
+      "identical": 1152,
       "identical_pct": 80.0,
       "per_cat_identical_pct": {
         "mt_bench": 80.0,
@@ -1224,15 +1608,15 @@
       "first_div_median": 97.5,
       "margin_at_div": {
         "median": 0.125,
-        "p95": 0.1562,
+        "p95": 0.2062,
         "max": 0.25,
         "share_below_0.1": 0.458,
         "share_below_0.5": 1.0
       }
     },
     "native5": {
-      "n": 480,
-      "identical": 381,
+      "n": 1440,
+      "identical": 1143,
       "identical_pct": 79.4,
       "per_cat_identical_pct": {
         "mt_bench": 86.2,
@@ -1385,8 +1769,8 @@
       "n": 8,
       "gain": 3.7,
       "ci": [
-        -1.73,
-        7.73
+        -1.87,
+        7.8
       ],
       "best_native": "fixed4",
       "tps": {
@@ -1402,8 +1786,8 @@
       "n": 8,
       "gain": 7.75,
       "ci": [
-        3.1,
-        12.03
+        3.06,
+        12.02
       ],
       "best_native": "fixed2",
       "tps": {
@@ -1419,8 +1803,8 @@
       "n": 8,
       "gain": 5.04,
       "ci": [
-        2.61,
-        7.61
+        2.52,
+        7.42
       ],
       "best_native": "fixed4",
       "tps": {
@@ -1436,8 +1820,8 @@
       "n": 8,
       "gain": 8.24,
       "ci": [
-        2.76,
-        11.86
+        2.75,
+        11.64
       ],
       "best_native": "fixed5",
       "tps": {
@@ -1453,8 +1837,8 @@
       "n": 8,
       "gain": 4.35,
       "ci": [
-        -0.13,
-        5.99
+        -0.16,
+        5.93
       ],
       "best_native": "fixed4",
       "tps": {
@@ -1470,8 +1854,8 @@
       "n": 8,
       "gain": 9.54,
       "ci": [
-        3.83,
-        11.73
+        3.71,
+        11.7
       ],
       "best_native": "fixed4",
       "tps": {
@@ -1488,7 +1872,7 @@
       "gain": 6.44,
       "ci": [
         3.78,
-        8.45
+        8.52
       ],
       "best_native": "fixed4",
       "tps": {

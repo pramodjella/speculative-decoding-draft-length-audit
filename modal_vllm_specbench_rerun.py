@@ -49,7 +49,7 @@ MAX_MODEL_LEN = 4096          # longest Spec-Bench prompt is ~1.7k tokens, plus 
 UTIL_SPEC = 0.29              # three engines in one process; leaves KV room for B=8
 UTIL_REF = 0.85
 USD_PER_HOUR = 4.40           # H100 $3.95/h list price plus CPU/RAM, rounded up on purpose
-BUDGET_USD = 18.0             # hard cap across every call (under $20, inside the free credits)
+BUDGET_USD = 21.0             # hard cap across every call; raised from 18 on 2026-10-19 (approved) for the third tuned container
 OUT_DIR = "/root/out/specbench"
 
 image = (

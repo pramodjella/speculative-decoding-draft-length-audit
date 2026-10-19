@@ -102,6 +102,38 @@ def by_category(unit_map, baselines=NATIVES):
     return res
 
 
+def pooled_best_per_category(unit_map, baselines, adapt=ADAPT, seed=20261019):
+    """All categories pooled, each category against its own fastest baseline.
+
+    The "all" row of by_category() compares against the one baseline that is fastest over the
+    pooled prompts. This one lets every category keep its own best fixed depth (for example K=2
+    for translation and K=4 or 5 elsewhere), so it is the stricter comparison. The bootstrap
+    resamples within each category and re-picks each category's best baseline every time. It
+    draws from its own generator, so adding it leaves every other interval unchanged.
+    """
+    cats = [c for c in CATS if unit_map.get(c)]
+    rng = np.random.default_rng(seed)
+
+    def gain(sel):
+        a_tok = a_dt = b_tok = b_dt = 0.0
+        best = {}
+        for c in cats:
+            rows, idx = unit_map[c], sel[c]
+            best[c] = max(baselines, key=lambda a: _tps(rows, a, idx))
+            b_tok += sum(rows[i][best[c]][0] for i in idx)
+            b_dt += sum(rows[i][best[c]][1] for i in idx)
+            a_tok += sum(rows[i][adapt][0] for i in idx)
+            a_dt += sum(rows[i][adapt][1] for i in idx)
+        return 100 * ((a_tok / a_dt) / (b_tok / b_dt) - 1), best
+
+    point, best = gain({c: np.arange(len(unit_map[c])) for c in cats})
+    boots = [gain({c: rng.integers(0, len(unit_map[c]), len(unit_map[c])) for c in cats})[0]
+             for _ in range(NBOOT)]
+    lo, hi = np.percentile(boots, [2.5, 97.5])
+    return {"n": sum(len(unit_map[c]) for c in cats), "gain": round(point, 2),
+            "ci": [round(lo, 2), round(hi, 2)], "best_per_category": best}
+
+
 def run_arms(records):
     """Arms present in a run's records, and the baseline arms (everything except cum(0.2))."""
     arms = sorted({r["arm"] for r in records})
@@ -173,8 +205,75 @@ def fmt_gain(s):
     return f"${s['gain']:+.1f}$ [{s['ci'][0]:+.1f}, {s['ci'][1]:+.1f}]"
 
 
+def _kstar(results, c):
+    """Best fixed depth(s) for a category across containers, e.g. '4' or '4/5'; a dagger marks
+    the padded K=2 arm."""
+    ks = []
+    for r in results:
+        b = r[c]["best_native"]
+        k = b.replace("native", "").replace("fixed", "") + ("" if b.startswith("native") else "$^\\dagger$")
+        if k not in ks:
+            ks.append(k)
+    return "/".join(sorted(ks))
+
+
+def mean_se(xs):
+    xs = np.array(xs, dtype=float)
+    se = float(xs.std(ddof=1) / np.sqrt(len(xs))) if len(xs) > 1 else float("nan")
+    return float(xs.mean()), se
+
+
+def tex_main_containers(tuned):
+    """Each category against its own best fixed depth, one column per fresh container, then the
+    mean and standard error over containers (the layout of the fair-baseline table). The "All"
+    row pools the prompts with every category still against its own best depth."""
+    tt = sorted(tuned)
+    res = [tuned[t] for t in tt]
+    cols = "ll" + "r" * (len(tt) + 2)
+    head = ["Category", "$K^{\\ast}$"] + [f"cont.~{i + 1}" for i in range(len(tt))]
+    head += [r"mean $\pm$ SE", "depth"]
+    lines = [r"\begin{tabular}{" + cols + "}", r"\toprule", " & ".join(head) + r" \\", r"\midrule"]
+    for c in CATS:
+        if not all(c in r for r in res):
+            continue
+        gains = [r[c]["gain"] for r in res]
+        m, se = mean_se(gains)
+        depth = np.mean([r[c]["depth"] for r in res if r[c]["depth"] is not None])
+        lines.append(" & ".join([CAT_LABEL[c], _kstar(res, c)] + [f"${g:+.1f}$" for g in gains]
+                                + [f"${m:+.1f} \\pm {se:.1f}$", f"{depth:.2f}"]) + r" \\")
+    if all("all_best_per_category" in r for r in res):
+        gains = [r["all_best_per_category"]["gain"] for r in res]
+        m, se = mean_se(gains)
+        depth = np.mean([r["all"]["depth"] for r in res if r["all"]["depth"] is not None])
+        lines += [r"\midrule", " & ".join(["All", "per cat."] + [f"${g:+.1f}$" for g in gains]
+                                           + [f"${m:+.1f} \\pm {se:.1f}$", f"{depth:.2f}"]) + r" \\"]
+    lines += [r"\bottomrule", r"\end{tabular}",
+              r"% dagger: best fixed depth was the padded K=2 arm inside the K=7 engine"]
+    return "\n".join(lines)
+
+
+def tex_k3(untuned):
+    """The K<=3 configuration of the fair-baseline table, on its own containers."""
+    ut = sorted(untuned)
+    lines = [r"\begin{tabular}{l" + "r" * (len(ut) + 1) + "}", r"\toprule",
+             "Category & " + " & ".join(f"cont.~{i + 1}" for i in range(len(ut)))
+             + r" & mean \\", r"\midrule"]
+    for c in CATS + ["all"]:
+        if not all(c in untuned[t] for t in ut):
+            continue
+        if c == "all":
+            lines.append(r"\midrule")
+        gains = [untuned[t][c]["gain"] for t in ut]
+        lines.append(" & ".join([CAT_LABEL[c]] + [f"${g:+.1f}$" for g in gains]
+                                + [f"${np.mean(gains):+.1f}$"]) + r" \\")
+    lines += [r"\bottomrule", r"\end{tabular}"]
+    return "\n".join(lines)
+
+
 def tex_main(tuned, untuned):
     """Headline columns from the tuned-baseline run, replication columns from the K<=3 runs."""
+    if len(tuned) >= 2:
+        return tex_main_containers(tuned)
     tt, ut = sorted(tuned), sorted(untuned)
     cols = "l" + "c" + "r" * (len(tt) + len(ut) + 1)
     head = ["Category", "$K^{\\ast}$"]
@@ -324,7 +423,9 @@ def main():
     for t, s_ in main_runs.items():
         arms, base = run_arms(s_["main"])
         baselines_of[t] = base
-        per_container[t] = by_category(units(s_["main"], arms), base)
+        um = units(s_["main"], arms)
+        per_container[t] = by_category(um, base)
+        per_container[t]["all_best_per_category"] = pooled_best_per_category(um, base)
     tuned = {t: r for t, r in per_container.items() if is_tuned(baselines_of[t])}
     untuned = {t: r for t, r in per_container.items() if not is_tuned(baselines_of[t])}
     summary["main"] = per_container
@@ -366,6 +467,8 @@ def main():
 
     if per_container:
         open(os.path.join(a.tables, "specbench_main.tex"), "w").write(tex_main(tuned, untuned))
+        if len(tuned) >= 2 and untuned:
+            open(os.path.join(a.tables, "specbench_k3.tex"), "w").write(tex_k3(untuned))
     if ident:
         open(os.path.join(a.tables, "specbench_identity.tex"), "w").write(
             tex_identity(ident, ref_base))
@@ -393,6 +496,28 @@ def main():
                           + f" | {s_['tps_adapt']} | "
                           f"{s_['gain']:+.2f} [{s_['ci'][0]:+.2f}, {s_['ci'][1]:+.2f}] | "
                           f"{s_['best_native']} | {s_['depth']} |")
+        md.append("")
+    if tuned:
+        tt = sorted(tuned)
+        md += ["## Main, B=1, tuned baseline: each category against its own best K, by container", "",
+               "| category | best K | " + " | ".join(f"`{t}`" for t in tt) + " | mean ± SE |",
+               "|---|---|" + "---|" * len(tt) + "---|"]
+        for c in CATS:
+            if all(c in tuned[t] for t in tt):
+                gains = [tuned[t][c]["gain"] for t in tt]
+                m, se = mean_se(gains)
+                ks = "/".join(sorted({tuned[t][c]["best_native"] for t in tt}))
+                md.append(f"| {CAT_LABEL[c]} | {ks} | " + " | ".join(f"{g:+.2f}" for g in gains)
+                          + f" | {m:+.2f} ± {se:.2f} |" if len(tt) > 1 else
+                          f"| {CAT_LABEL[c]} | {ks} | " + " | ".join(f"{g:+.2f}" for g in gains)
+                          + f" | {m:+.2f} |")
+        if all("all_best_per_category" in tuned[t] for t in tt):
+            pb = [tuned[t]["all_best_per_category"] for t in tt]
+            m, se = mean_se([p_["gain"] for p_ in pb])
+            md.append("| All (each category at its own best K) | per category | "
+                      + " | ".join(f"{p_['gain']:+.2f} [{p_['ci'][0]:+.2f}, {p_['ci'][1]:+.2f}]"
+                                   for p_ in pb)
+                      + (f" | {m:+.2f} ± {se:.2f} |" if len(tt) > 1 else f" | {m:+.2f} |"))
         md.append("")
     for t, d in sorted(batch_by_run.items()):
         for b, res in sorted(d.items()):
