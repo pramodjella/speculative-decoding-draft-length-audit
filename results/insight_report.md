@@ -2,7 +2,6 @@
 
 **Date:** June 15, 2026  
 **Author:** Pramod Jella, Vizuara Inference Engineering Team  
-**Milestone 4 Deliverable**  
 
 ---
 

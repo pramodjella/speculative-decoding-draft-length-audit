@@ -1,6 +1,6 @@
 > ⚠️ **SUPERSEDED — historical document.** Numbers and claims here predate the final audit
-> and may be stale (e.g. pre-audit oracle estimates, retired verdicts). The current source of
-> truth is `docs/CANONICAL.md`; the current paper is `report/paper_draft.md`. Kept for
+> and may be stale (e.g. pre-audit oracle estimates, retired verdicts). The current numbers
+> are in `DELIVERABLES.md`. Kept for
 > provenance only — do not cite from this file.
 
 # Insight Report — Adaptive Draft-Length Controllers on Llama-3.1-8B + EAGLE-3

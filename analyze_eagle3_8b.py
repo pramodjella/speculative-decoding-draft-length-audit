@@ -1,7 +1,7 @@
-"""Roadmap deliverable generator for Llama-3.1-8B + EAGLE3 (yuhuili head).
+"""Analysis generator for Llama-3.1-8B + EAGLE3 (yuhuili head).
 
-Single owner-script that turns the REAL Modal-H100 captures into the roadmap's
-M3/M4 artifacts for this target:
+Single owner-script that turns the REAL Modal-H100 captures into the
+artifacts for this target:
 
 Inputs (results/):
   eagle3_multik_llama8b.json   fixed-K sweep: per (workload,idx,K) latency+accept_len

@@ -10,9 +10,9 @@ No prior knowledge of speculative decoding required.*
 Big language models write one word at a time, and each word costs a full pass through a huge
 model. **Speculative decoding** speeds this up: a *tiny* "draft" model guesses the next K words
 cheaply, then the big "target" model checks all K guesses in **one** pass. Correct guesses are
-kept (the output is bit-identical to normal decoding); wrong ones are thrown away. The knob is
+kept (by design the big model's own choices); wrong ones are thrown away. The knob is
 **K — how many words to guess before checking**. The research field claimed you should adjust K
-on the fly with clever signals, promising up to +25%. **We tested that claim end to end and
+on the fly with clever signals, promising +12 to 23%. **We tested that claim end to end and
 found: the promise is mostly an illusion, the clever methods lose money, and one free,
 signal-less rule is the only thing that works.**
 
@@ -86,7 +86,7 @@ passes when they don't.
 
 ## 5. Algorithm 2 — The Bayes-ceiling decomposition (our measuring stick)
 
-**Question:** of the famous "oracle +25%", how much could *any* real controller ever get?
+**Question:** of the oracle's gain (+18% for Llama-3.1-8B), how much could *any* real controller ever get?
 
 1. **Capture** (Stage A): for ~50,000 guesses per model, record the draft's hidden state and
    whether the guess was accepted.
@@ -228,10 +228,9 @@ Three of our own early runs gave +2.4%, −1.9%, +6.4% from **identical settings
 | `modal_eagle_inloop.py` | The trained-probe early-stop, faithfully inside the draft loop |
 | `modal_vllm_tailprune2.py` | The vLLM-native harness: patches the *true* draft loop with fail-fast gates |
 | `modal_vllm_tailprune_diag*.py`, `modal_vllm_specpkg_dump.py` | The diagnosis chain that found vLLM's real draft loop |
-| `analyze_make_figures.py` | Generates the three paper figures from result JSONs |
+| `analyze_make_figures.py` | Generates the paper's figures from result JSONs |
 | `results/perstep_signal/*.md` | Human-readable verdicts: `bayes_ceiling`, `policy_zoo`, `pre_write_audit`, `wallclock_eagle` |
-| `report/paper_draft.md` → `paper/paper.tex` | The paper (markdown = source of truth; LaTeX port) |
-| `DELIVERABLES.md` | Index of every result (E1–E6) with reproduce commands |
+| `DELIVERABLES.md` | Index of every result (E1–E7) with reproduce commands |
 
 Data not in git (regenerable): hidden-state parquets (Modal volume `spec-dec-m5-results`),
 model weights.
@@ -260,8 +259,10 @@ reading any number.**
 ## 10. FAQ
 
 **Q: Does any of this change the model's answers?**
-No. Verification is exact — output is bit-identical to normal decoding. Everything here is
-about speed only.
+Not beyond what stock speculative decoding does. Verification keeps only the big model's own
+choices, and on Spec-Bench 78 to 84% of outputs match normal decoding token for token, the same
+rate as stock vLLM speculative decoding; every mismatch is at a near-tie between the big model's
+top two tokens. Everything here is about speed.
 
 **Q: Why is a "mostly negative" result valuable?**
 Because the field's newest benchmark paper (SpecDecode-Bench) explicitly asked for a predictor

@@ -39,4 +39,4 @@ if __name__ == "__main__":
     if args.smoke:
         run_smoke()
     else:
-        log.info("Plug in your benchmark loader + model here (see README milestones).")
+        log.info("Plug in your benchmark loader + model here.")
