@@ -321,16 +321,20 @@ def tex_identity(ident, ref_base):
 
 
 def tex_batch(batch_by_b):
+    """Gain with its paired 95% interval for every category, so a swing from one chunk set to
+    another reads as noise where it is noise. The All row keeps each category at its own best
+    fixed depth, as in the main table."""
     bs = sorted(batch_by_b)
     lines = [r"\begin{tabular}{l" + "r" * len(bs) + "}", r"\toprule",
              "Category & " + " & ".join(f"$B{{=}}{b}$" for b in bs) + r" \\", r"\midrule"]
-    for c in CATS + ["all"]:
+    for c in CATS:
         if not all(c in batch_by_b[b] for b in bs):
             continue
-        if c == "all":
-            lines.append(r"\midrule")
-        lines.append(f"{CAT_LABEL[c]} & " + " & ".join(
-            f"${batch_by_b[b][c]['gain']:+.1f}$" for b in bs) + r" \\")
+        lines.append(f"{CAT_LABEL[c]} & " + " & ".join(fmt_gain(batch_by_b[b][c]) for b in bs)
+                     + r" \\")
+    if all("all_best_per_category" in batch_by_b[b] for b in bs):
+        lines += [r"\midrule", "All & " + " & ".join(
+            fmt_gain(batch_by_b[b]["all_best_per_category"]) for b in bs) + r" \\"]
     lines += [r"\bottomrule", r"\end{tabular}"]
     return "\n".join(lines)
 
@@ -355,36 +359,36 @@ def bracket_table(records):
     return res
 
 
-def figure(main_all, batch_by_b, path):
+def figure(b1_points, batch_points, path):
+    """Pooled gain with each category at its own best fixed depth, with 95% intervals: one point
+    per fresh container at B=1, one per batch size from the batch run. Per-category lines are
+    left out on purpose; at B=4 and B=8 they rest on 5 to 10 chunks each and their intervals
+    are wider than the swings between them (the batch table lists them with intervals)."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     plt.rcParams.update({"font.size": 10, "axes.spines.top": False,
                          "axes.spines.right": False})
-    pts = {}
-    if main_all:
-        pts[1] = main_all
-    for b, d in batch_by_b.items():
-        pts[b] = d
-    bs = sorted(pts)
-    if not bs:
+    pts = [(1, p_) for p_ in b1_points] + [(b, p_) for b, p_ in sorted(batch_points.items())]
+    if not pts:
         return
+    bs = sorted({b for b, _ in pts})
+    xpos = {b: i for i, b in enumerate(bs)}
     fig, ax = plt.subplots(figsize=(3.4, 2.5))
-    x = np.arange(len(bs))
-    for i, c in enumerate(CATS):
-        ys = [pts[b][c]["gain"] if c in pts[b] else np.nan for b in bs]
-        ax.plot(x, ys, color="#B8B8B8", lw=1.0, marker="o", ms=3, zorder=1,
-                label="each category" if i == 0 else None)
-    ys = [pts[b]["all"]["gain"] for b in bs]
-    lo = [pts[b]["all"]["gain"] - pts[b]["all"]["ci"][0] for b in bs]
-    hi = [pts[b]["all"]["ci"][1] - pts[b]["all"]["gain"] for b in bs]
-    ax.errorbar(x, ys, yerr=[lo, hi], color="#4878A8", lw=2, marker="o", ms=5,
-                capsize=3, zorder=3, label="all categories pooled (95% CI)")
+    n1 = sum(1 for b, _ in pts if b == 1)
+    k1 = 0
+    for b, p_ in pts:
+        x = xpos[b]
+        if b == 1 and n1 > 1:
+            x += (k1 - (n1 - 1) / 2) * 0.12
+            k1 += 1
+        ax.errorbar([x], [p_["gain"]], yerr=[[p_["gain"] - p_["ci"][0]], [p_["ci"][1] - p_["gain"]]],
+                    color="#4878A8", lw=2, marker="o", ms=5, capsize=3, zorder=3)
     ax.axhline(0, color="black", lw=0.8)
-    ax.set_xticks(x)
-    ax.set_xticklabels([f"B={b}" for b in bs])
-    ax.set_ylabel("gain over best\nfixed depth (%)")
-    ax.legend(frameon=False, fontsize=7.5, loc="best")
+    ax.set_xticks(range(len(bs)))
+    ax.set_xticklabels([f"B={b}" + ("\n(3 containers)" if b == 1 and n1 > 1 else "")
+                        for b in bs])
+    ax.set_ylabel("gain over each category's\nbest fixed depth (%)")
     plt.tight_layout()
     plt.savefig(path, dpi=220)
     plt.close()
@@ -436,8 +440,11 @@ def main():
     for t, s_ in batch_runs.items():
         arms, base = run_arms(s_["batch"])
         baselines_of[t] = base
-        batch_by_run[t] = {b: by_category(units(s_["batch"], arms, bnom=b), base)
-                           for b in sorted({r.get("Bnom", r["B"]) for r in s_["batch"]})}
+        batch_by_run[t] = {}
+        for b in sorted({r.get("Bnom", r["B"]) for r in s_["batch"]}):
+            um = units(s_["batch"], arms, bnom=b)
+            batch_by_run[t][b] = by_category(um, base)
+            batch_by_run[t][b]["all_best_per_category"] = pooled_best_per_category(um, base)
     summary["batch"] = {t: {str(b): v for b, v in d.items()} for t, d in batch_by_run.items()}
     tuned_batch = [t for t in batch_by_run if is_tuned(baselines_of[t])]
     head_batch = batch_by_run[tuned_batch[0]] if tuned_batch else (
@@ -474,10 +481,10 @@ def main():
             tex_identity(ident, ref_base))
     if head_batch:
         open(os.path.join(a.tables, "specbench_batch.tex"), "w").write(tex_batch(head_batch))
-    main_all = None
-    if per_container:
-        main_all = (tuned or untuned)[sorted(tuned or untuned)[0]]
-    figure(main_all, head_batch, os.path.join(a.fig, "fig_specbench_batch.png"))
+    src = tuned or untuned
+    b1_points = [src[t].get("all_best_per_category", src[t]["all"]) for t in sorted(src)]
+    batch_points = {b: d.get("all_best_per_category", d["all"]) for b, d in head_batch.items()}
+    figure(b1_points, batch_points, os.path.join(a.fig, "fig_specbench_batch.png"))
 
     md = ["# Spec-Bench rerun: summary", "",
           "Generated by `analyze_specbench_rerun.py`. Numbers only; no interpretation.", ""]
@@ -529,6 +536,10 @@ def main():
                     md.append(f"| {CAT_LABEL[c]} | {s_['n']} | {s_['gain']:+.2f} "
                               f"[{s_['ci'][0]:+.2f}, {s_['ci'][1]:+.2f}] | {s_['best_native']} | "
                               f"{s_['depth']} |")
+            if "all_best_per_category" in res:
+                pb = res["all_best_per_category"]
+                md.append(f"| All (each category at its own best K) | {pb['n']} | {pb['gain']:+.2f} "
+                          f"[{pb['ci'][0]:+.2f}, {pb['ci'][1]:+.2f}] | per category | |")
             md.append("")
     if bracket_recs:
         arms, _ = run_arms(bracket_recs)

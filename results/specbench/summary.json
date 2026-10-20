@@ -1072,6 +1072,22 @@
           },
           "tps_adapt": 440.45,
           "depth": 4.33
+        },
+        "all_best_per_category": {
+          "n": 60,
+          "gain": 7.69,
+          "ci": [
+            5.29,
+            10.07
+          ],
+          "best_per_category": {
+            "mt_bench": "native3",
+            "translation": "native2",
+            "summarization": "native3",
+            "qa": "native3",
+            "math_reasoning": "native3",
+            "rag": "native3"
+          }
         }
       },
       "8": {
@@ -1179,6 +1195,22 @@
           },
           "tps_adapt": 728.51,
           "depth": 4.53
+        },
+        "all_best_per_category": {
+          "n": 30,
+          "gain": 3.73,
+          "ci": [
+            1.54,
+            5.91
+          ],
+          "best_per_category": {
+            "mt_bench": "native3",
+            "translation": "native3",
+            "summarization": "native3",
+            "qa": "native3",
+            "math_reasoning": "native3",
+            "rag": "native3"
+          }
         }
       }
     },
@@ -1295,6 +1327,22 @@
           },
           "tps_adapt": 443.05,
           "depth": 4.33
+        },
+        "all_best_per_category": {
+          "n": 60,
+          "gain": 1.82,
+          "ci": [
+            -2.47,
+            5.01
+          ],
+          "best_per_category": {
+            "mt_bench": "native4",
+            "translation": "fixed2",
+            "summarization": "native5",
+            "qa": "native5",
+            "math_reasoning": "native5",
+            "rag": "native4"
+          }
         }
       },
       "8": {
@@ -1409,6 +1457,22 @@
           },
           "tps_adapt": 729.61,
           "depth": 4.56
+        },
+        "all_best_per_category": {
+          "n": 30,
+          "gain": 2.4,
+          "ci": [
+            -1.97,
+            5.65
+          ],
+          "best_per_category": {
+            "mt_bench": "native4",
+            "translation": "fixed2",
+            "summarization": "native4",
+            "qa": "native5",
+            "math_reasoning": "native5",
+            "rag": "native4"
+          }
         }
       }
     }

@@ -17,9 +17,9 @@ against a tuned fixed K, on one H100 at batch size 1 unless stated.
 | How much of the oracle gain can a draft-side signal reach? | About 20%. The other ~80% is variance that the draft-side state does not determine. | Table 2, Figure 2 |
 | Where does the reachable part live? | In the drafter's hidden state: probe AUC 0.84 to 0.88. Logit features and token position recover almost none of it. | Section 6, `results/perstep_signal/` |
 | Does acting on that signal pay in a running engine? | No: 2 to 17% slower than a tuned fixed depth. | Tables 3 and 4 |
-| Which policy survives? | Signal-free saturation tail-pruning, cum(0.2). In vLLM: +2 to +6% over the fastest native fixed-K engine on three workloads (one within noise), and +6.8 ± 0.2% (mean ± SE over three fresh containers) on all 480 Spec-Bench prompts at 512 output tokens, with each category against its own best fixed depth (K = 4 or 5; K = 2 for translation). Every category gains on every container. | Tables 5 and 6 |
-| What happens at larger batch? | +2.4% at batch 4 and +2.9% at batch 8 on Spec-Bench, both within noise. | Table 11, Figure 6 |
-| Are outputs unchanged? | 78 to 84% of Spec-Bench outputs match non-speculative greedy decoding token for token, the same rate as stock speculative decoding. Every mismatch is at a near-tie between the target's top two tokens (log-probability gap at most 0.25). | Table 9 |
+| Which policy survives? | Signal-free saturation tail-pruning, cum(0.2). In vLLM: +2 to +6% over the fastest native fixed-K engine on three workloads (one within noise), and +6.8 ± 0.2% (mean ± SE over three fresh containers) on all 480 Spec-Bench prompts at 512 output tokens, with each category against its own best fixed depth (K = 4 or 5; K = 2 for translation). Every category gains on every container. The threshold 0.2 was fixed on the original workloads before the Spec-Bench runs. | Tables 5 and 6 |
+| What happens at larger batch? | On Spec-Bench, with each category at its own best fixed depth: +1.8% at batch 4 and +2.4% at batch 8, neither distinguishable from zero. | Table 11, Figure 6 |
+| How faithful are the outputs? | No less faithful than stock vLLM speculative decoding: 78 to 84% of Spec-Bench outputs match non-speculative greedy decoding token for token, the same rate as stock speculative decoding, and every mismatch is at a near-tie between the target's top two tokens (log-probability gap at most 0.25). | Table 10 |
 
 ## Quick start: recompute on a CPU
 
@@ -65,10 +65,10 @@ need an H100 and a [Modal](https://modal.com) account. Everything else reads the
 | Verification cost against K | `results/verify_microbench.json` | `modal_verify_microbench.py` | – |
 | Batch collapse, long context | `results/eagle3_batch/`, `results/eagle3_longctx*/` | `modal_vllm_eagle3.py`, `modal_*longctx*.py` | `analyze_eagle3_batch.py`, `analyze_eagle3_longctx.py` |
 
-`DELIVERABLES.md` maps each experiment (E1 to E7) to the script and file behind it.
-`docs/CANONICAL.md` lists the numbers of the original experiments with their sources; the
-Spec-Bench numbers are in `results/specbench/summary.md`. Superseded values are kept in both
-documents under a clear banner, so the history of each number can be followed.
+`DELIVERABLES.md` maps each experiment (E1 to E7) to the script and file behind it. Its first
+table lists every number the paper uses; the Spec-Bench numbers come from
+`results/specbench/summary.md`. Values that were later corrected are kept at the end of
+`DELIVERABLES.md` under a clear banner, so the history of each number can be followed.
 
 ## How the timing was done
 
@@ -91,7 +91,7 @@ modal_*.py                 GPU harnesses (H100 through Modal)
 results/                   raw per-run JSON, CSV and summaries behind every table and figure
 src/                       controller library, simulators and the speculative-decoding runner
 tests/                     unit tests for src/
-docs/                      CANONICAL.md (every number), ARCHITECTURE.md (how the code fits)
+docs/ARCHITECTURE.md       how the code fits together
 configs/, data/            experiment configs and dataset cards
 notebooks/                 early exploration
 scripts/check_stale.sh     checks shipped documents for retired numbers

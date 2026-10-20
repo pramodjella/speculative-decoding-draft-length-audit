@@ -120,7 +120,7 @@ enforce_eager (same surgery as topK_genrate), with break-then-PAD preserving the
 > and one of three workloads (MT-Bench) is a wash** — cross-container spread exceeds within-run SEs, reinforcing the protocol
 > finding (single-container numbers deserve limited trust). Mechanism of Q1's answer: at B=1
 > the verify pass is flat in K between speculative configs (MEASURED: microbench q=2..8 flat,
-> 18.5→18.2ms; see docs/CANONICAL.md), so native verification savings are
+> 18.5→18.2ms; see results/verify_microbench.json), so native verification savings are
 > small — the equal-verify design had not been flattering the policy. cum0.05 is consistently
 > negative on MT-Bench → thr=0.2 is the robust setting. Data:
 > `results/vllm_fairbase_llama8b_{r1,r2,r3}.json`.

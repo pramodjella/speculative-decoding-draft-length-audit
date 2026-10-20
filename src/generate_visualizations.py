@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate all 5 core visualizations for the Adaptive Draft Length research
-(Milestone 4, Section 6.1).
+Generate all 5 core visualizations for the Adaptive Draft Length research.
 
 Figures produced:
   1. fig_speedup_vs_policy.png   – Grouped bar: net_speedup by workload & policy

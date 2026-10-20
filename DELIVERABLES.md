@@ -23,7 +23,7 @@ scripts run on a CPU from the released files.
 | Saturation tail-pruning, eager tree engine, held-out prompts | +2.9 to +4.8% over the strongest fixed depth (Llama-3.1-8B) | E6 | `results/eagle_paired.json` |
 | Saturation tail-pruning cum(0.2), vLLM, three containers | HumanEval +5.6 ± 1.2%, GSM8K +5.7 ± 2.0%, MT-Bench +2.0 ± 1.1% | E6 | `results/vllm_fairbase_llama8b_r{1,2,3}.json` |
 | cum(0.2) on Spec-Bench, 480 prompts, 512 tokens, three fresh containers | +6.8 ± 0.2% (mean ± SE) with each category against its own best fixed K; +4.8 to +8.7% by category | E7 | `results/specbench/` |
-| Larger batches | fair-baseline workloads: about +1% at B=4, 0 to −3% at B=8; Spec-Bench: +2.4% at B=4 and +2.9% at B=8, both within noise | E6, E7 | `results/vllm_fairbase2_llama8b_b{4,8}.json`, `results/specbench/specbench_spec_tb1.json` |
+| Larger batches | Spec-Bench, each category at its own best fixed K: +1.8% [−2.5, +5.0] at B=4 and +2.4% [−2.0, +5.7] at B=8, not distinguishable from zero; fair-baseline workloads: about +1% at B=4, 0 to −3% at B=8 | E6, E7 | `results/vllm_fairbase2_llama8b_b{4,8}.json`, `results/specbench/specbench_spec_tb1.json` |
 | Outputs against non-speculative greedy decoding | 78 to 84% identical token for token, the same rate as stock speculative decoding; every mismatch at a top-1/top-2 gap of at most 0.25 nats | E7 | `results/specbench/specbench_reference_full.json` |
 | Verification cost against K at B=1 | 15.8 ms for one token, then 18.5 to 18.2 ms for 2 to 8 query positions | E6 | `results/verify_microbench.json` |
 | Online per-request controllers | all lose to the tuned fixed K; the per-request oracle is +2.0% | E6 | `results/eagle3_controller_findings.md` |
@@ -51,18 +51,11 @@ Run: `modal run modal_vllm_eagle3.py --batch N` for N = 8, 16, 32, 64, then
 ## E2. Cheap per-step signals (three model families)
 
 Whether logit-level features available at draft time (entropy, top-1 margin and similar) can
-recover the per-step oracle. Its oracle figures come from an earlier pipeline; the audited
-oracle figures are the ones in E4.
-
-| model | oracle gain | draft-feature recovery | target-entropy recovery |
-|-------|---------------:|----------------------:|------------------------:|
-| Llama-3.1-8B (instruct) | +24.8% | +6.8% ± 3.8 | +6.8% ± 5.0 |
-| Qwen3-14B (instruct) | +16.9% | +8.5% ± 4.4 | +9.0% ± 4.4 |
-| DeepSeek-R1-Distill-Llama-8B (reasoning) | +8.9% | −2.7% ± 1.1 | −4.9% ± 2.9 |
-
-Cheap features recover little. On the reasoning model, a predictor does worse than fixed K=1.
-Even the target's own entropy after verification, which no real controller can see, does not
-reach the oracle.
+recover the per-step oracle. They recover little; on the reasoning model a predictor does worse
+than fixed K=1, and even the target's own entropy after verification, which no real controller
+can see, does not reach the oracle. These runs used an earlier pipeline whose oracle figures
+were later corrected, so their table sits under Superseded numbers below. The paper's figures
+for this question come from the decomposition in E4.
 
 Files: `results/perstep_signal/target_entropy_audit.md`, `results/perstep_signal/audit.md`.
 Run: `modal run modal_eagle3_perstep_capture.py --model <model>`, then
@@ -265,7 +258,10 @@ sweep, and a token-by-token check against non-speculative greedy decoding.
   container 1, because translation's best depth is K=2.
 - Against native K=2 and 3, the fair-baseline configuration, on two fresh containers: +9.5% and
   +11.7%. That baseline is under-tuned for this workload, so these overstate the gain.
-- Batch, against the tuned baseline: +2.4% [−1.7, +5.8] at B=4 and +2.9% [−1.9, +7.1] at B=8.
+- Batch (40 prompts per category), each category against its own best fixed K: +1.8%
+  [−2.5, +5.0] at B=4 and +2.4% [−2.0, +5.7] at B=8, not distinguishable from zero. Per category
+  the values swing widely on 5 to 10 chunks each, so `summary.md` and the paper's batch table
+  give each one with its interval.
 - Padded fixed depths K=2 to 5 on 8 prompts per category put the best depth at 4 or 5 in five
   of six categories; cum(0.2) beats the best padded depth by +6.4% [+3.8, +8.5].
 - Token identity: 78 to 84% of outputs match the non-speculative greedy reference token for
@@ -287,8 +283,7 @@ Qwen2.5 draft-target pairs. That code and its results remain:
 - Controllers (entropy, epsilon-greedy, UCB, history, LinUCB, oracle): `src/controllers/`;
   harness and logging: `src/bench/`, `src/serve/`; unit tests: `tests/`.
 - Fixed-K sweep and exploration: `notebooks/`; EAGLE-3 fixed-K sweep by workload:
-  `results/eagle3_8b/fixedK_by_workload.csv` (best fixed K on HumanEval, GSM8K and MT-Bench at
-  128 tokens: K=2, 1.54× net).
+  `results/eagle3_8b/fixedK_by_workload.csv`.
 - Per-request controllers and per-step SVIP simulation on the EAGLE-3 traces:
   `results/eagle3_8b/policies.csv`, `perstep_svip.csv`, `ablations.csv`, `error_taxonomy.md`
   (`src/simulate_eagle_controllers.py`, `src/simulate_eagle_perstep.py`,
@@ -304,7 +299,15 @@ numbers; where they differ from this file, this file is current.
 
 ## Superseded numbers
 
-<!-- superseded-block: start (un-paired ladder, kept for the audit trail) -->
+<!-- superseded-block: start (E2's first pipeline and the un-paired ladder, kept for the audit trail) -->
+E2's cheap-signal audit, from the first pipeline (oracle figures superseded by E4):
+
+| model | oracle gain | draft-feature recovery | target-entropy recovery |
+|-------|---------------:|----------------------:|------------------------:|
+| Llama-3.1-8B (instruct) | +24.8% | +6.8% ± 3.8 | +6.8% ± 5.0 |
+| Qwen3-14B (instruct) | +16.9% | +8.5% ± 4.4 | +9.0% ± 4.4 |
+| DeepSeek-R1-Distill-Llama-8B (reasoning) | +8.9% | −2.7% ± 1.1 | −4.9% ± 2.9 |
+
 The first version of the decomposition (`analyze_bayes_ceiling.py` → `bayes_ceiling.json`)
 scored the rungs on different rows, so the ceiling did not bound the deployable probe. Its
 values, superseded by the paired table in E4:

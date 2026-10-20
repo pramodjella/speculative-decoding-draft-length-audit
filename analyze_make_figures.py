@@ -16,7 +16,7 @@ plt.rcParams.update({"font.size": 11, "axes.spines.top": False, "axes.spines.rig
 # The superseded un-paired bayes_ceiling.json scored the deployable and ceiling rungs on
 # DIFFERENT data, so the ceiling did not bound the probe it is supposed to bound; plotting
 # it put the "probe (deploy)" bar above "probe (oracle thr.)" and contradicted the decomposition table.
-# Rung naming follows docs/CANONICAL.md: the fourth rung is "probe (oracle thr.)". The retired
+# Rung naming follows the paper's decomposition table: the fourth rung is "probe (oracle thr.)". The retired
 # name Bayes-(hidden) overclaimed it: it removes threshold-selection error only, not
 # hypothesis-class error, so it bounds this probe family and not any reader of the hidden state.
 bcp = json.load(open(os.path.join(RES, "perstep_signal", "bayes_ceiling_paired.json")))
@@ -167,59 +167,74 @@ print("fig_batch_decay.png")
 print("done ->", OUT)
 
 # ── Fig 1 (paper): the audit as a waterfall (oracle -> survivor, gate by gate) ───────── #
-# One picture of the whole argument: the claimed gain, then what each gate removes.
 # Bars 1-2 are cost-model figures on the Llama-3.1-8B ladder; bars 3-4 are measured
-# wall-clock. The mixing is deliberate and labelled -- the point of the figure is that the
-# promise is scored in one currency and the delivery in another.
+# wall-clock. They sit in two separate panels with their own headers so the two currencies
+# never share a plot area. The y-range is shared so heights stay comparable; gate 2 is the
+# arrow that crosses the gap from the cost model to the clock.
+from matplotlib.patches import ConnectionPatch
 bcp2 = json.load(open(os.path.join(RES, "perstep_signal", "bayes_ceiling_paired.json")))
 fl = bcp2["llama8b"]["folds"]
 _m = lambda k: sum(f[k] for f in fl) / len(fl)
 oracle_pct = 100 * (_m("oracle") - _m("fixed")) / _m("fixed")
 reach_pct = 100 * (_m("deployable") - _m("fixed")) / _m("fixed")
 
-wc = json.load(open(os.path.join(RES, "eagle_wallclock.json")))
-realized_pct = -5.1          # in-loop probe, HumanEval (Table II)
-survivor_pct = 2.90          # tail-pruning, paired vs strongest fixed depth (Table III)
-
-labels = ["per-step\noracle", "reachable\nin principle", "realized on\nthe clock",
-          "signal-free\npruning"]
-vals = [oracle_pct, reach_pct, realized_pct, survivor_pct]
-cols = ["#B04030", "#4878A8", "#8C8C8C", "#6AA84F"]
+realized_pct = -5.1          # in-loop probe, HumanEval (the in-loop probe table)
+# The survivor bar is the Spec-Bench result: cum(0.2) in vLLM, all 480 prompts at 512 tokens,
+# each category against its own best fixed depth, mean over the three fresh containers.
+_sb = json.load(open(os.path.join(RES, "specbench", "summary.json")))
+_tuned = [t for t in _sb["main"]
+          if any(int(a.replace("native", "").replace("fixed", "")) >= 4
+                 for a in _sb["main_baselines"][t])]
+survivor_pct = sum(_sb["main"][t]["all_best_per_category"]["gain"] for t in _tuned) / len(_tuned)
 
 # Drawn for a SINGLE IEEE column (~3.4in wide), so it is sized small with proportionally large
-# type. A 7in-wide figure scaled into one column shrinks every label by half and the gate
-# annotations stop being readable.
-fig, ax = plt.subplots(figsize=(5.2, 3.3))
-x = np.arange(len(vals))
-bars = ax.bar(x, vals, color=cols, width=0.62)
-ax.axhline(0, color="black", lw=0.9)
-# Whole percentages only. The paired ladder puts the oracle span at 18.0 while the decomposition table quotes
-# the pooled 18.1; the gap is an aggregation convention, not a disagreement, and printing one
-# decimal here would advertise it. Exact values with error bars live in the tables.
-for b, v in zip(bars, vals):
-    ax.text(b.get_x() + b.get_width() / 2, v + (1.0 if v >= 0 else -2.6),
-            "%+.0f%%" % v, ha="center", fontsize=12, fontweight="bold")
-# the two gates that remove the gain
-# Annotations sit in the empty wedge to the RIGHT of each arrow. Centring them on the arrow
-# midpoint puts the text across both the arrow and the tall first bar.
-ax.annotate("", xy=(0.70, reach_pct + 0.6), xytext=(0.30, oracle_pct - 0.6),
-            arrowprops=dict(arrowstyle="->", lw=1.4, color="#555555"))
-ax.text(0.95, oracle_pct * 0.60, "gate 1\n~82% irreducible",
-        ha="left", va="center", fontsize=9, color="#333333")
-ax.annotate("", xy=(1.70, realized_pct - 0.4), xytext=(1.30, reach_pct - 0.4),
-            arrowprops=dict(arrowstyle="->", lw=1.4, color="#555555"))
-ax.text(1.95, oracle_pct * 0.40, "gate 2\ndies on the clock",
-        ha="left", va="center", fontsize=9, color="#333333")
-ax.set_xticks(x)
-ax.set_xticklabels(labels, fontsize=8.5)
-ax.set_ylabel("gain over tuned fixed $K$ (%)", fontsize=10)
-ax.set_ylim(min(vals) - 5.5, max(vals) + 5.0)
-ax.set_title("Following the promised speedup", fontsize=11.5)
-ax.text(0.5, min(vals) - 4.6, "cost model", fontsize=8.5, style="italic",
-        ha="center", color="#666666")
-ax.text(2.5, min(vals) - 4.6, "measured wall-clock", fontsize=8.5, style="italic",
-        ha="center", color="#666666")
-plt.tight_layout()
+# type. A 7in-wide figure scaled into one column shrinks every label by half.
+fig, (axl, axr) = plt.subplots(1, 2, figsize=(5.2, 3.4), sharey=True,
+                               gridspec_kw={"wspace": 0.42})
+panels = [
+    (axl, ["per-step\noracle", "reachable\nin principle"], [oracle_pct, reach_pct],
+     ["#B04030", "#4878A8"], "cost model"),
+    (axr, ["in-loop probe\n(tree engine)", "signal-free\npruning (vLLM,\nSpec-Bench)"],
+     [realized_pct, survivor_pct],
+     ["#8C8C8C", "#4E9A3A"], "measured wall-clock"),
+]
+lo = min(realized_pct, 0) - 4.0
+hi = max(oracle_pct, survivor_pct) + 4.5
+for ax, labels, vals, cols, header in panels:
+    x = np.arange(len(vals))
+    bars = ax.bar(x, vals, color=cols, width=0.62)
+    ax.axhline(0, color="black", lw=0.9)
+    # Whole percentages only: the paired ladder gives 18.0 where the decomposition table quotes the pooled
+    # 18.1, an aggregation convention; exact values with error bars live in the tables.
+    for b, v in zip(bars, vals):
+        ax.text(b.get_x() + b.get_width() / 2, v + (0.9 if v >= 0 else -2.4),
+                "%+.0f%%" % v, ha="center", fontsize=11.5, fontweight="bold")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=8.5)
+    ax.set_xlim(-0.6, 1.6)
+    ax.set_title(header, fontsize=10, style="italic", color="#333333", pad=6)
+axl.set_ylim(lo, hi)
+axl.set_ylabel("gain over tuned fixed $K$ (%)", fontsize=10)
+axr.tick_params(axis="y", labelleft=False, left=False)
+axr.spines["left"].set_visible(False)
+# gate 1: inside the cost-model panel
+axl.annotate("", xy=(0.66, reach_pct + 0.4), xytext=(0.33, oracle_pct - 0.8),
+             arrowprops=dict(arrowstyle="->", lw=1.3, color="#555555"))
+axl.text(0.78, oracle_pct * 0.62, "gate 1\n~82%\nirreducible", ha="left", va="center",
+         fontsize=8.5, color="#333333")
+# gate 2: from the last cost-model bar to the first wall-clock bar, across the panel gap
+con = ConnectionPatch(xyA=(1.31, reach_pct), coordsA=axl.transData,
+                      xyB=(-0.31, realized_pct * 0.5), coordsB=axr.transData,
+                      arrowstyle="->", lw=1.3, color="#555555")
+fig.add_artist(con)
+axr.text(-0.55, hi - 3.0, "gate 2\nrun inside\nthe engine", ha="left", va="top",
+         fontsize=8.5, color="#333333")
+fig.suptitle("Following the promised speedup", fontsize=11.5, y=0.98)
+fig.subplots_adjust(left=0.15, right=0.98, bottom=0.17, top=0.82)
+# the break between the two currencies: a rule down the middle of the gap
+_xl, _xr = axl.get_position().x1, axr.get_position().x0
+fig.add_artist(plt.Line2D([(_xl + _xr) / 2] * 2, [0.06, 0.86], transform=fig.transFigure,
+                          color="#9A9A9A", lw=1.0, ls=(0, (4, 3))))
 plt.savefig(os.path.join(OUT, "fig_waterfall.png"), dpi=220)
 plt.close()
 print("fig_waterfall.png")

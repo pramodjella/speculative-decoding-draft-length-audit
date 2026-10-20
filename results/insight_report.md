@@ -2,7 +2,6 @@
 
 **Date:** June 15, 2026  
 **Author:** anonymised for review
-**Milestone 4 Deliverable**  
 
 ---
 
