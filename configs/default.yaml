@@ -5,14 +5,14 @@ dtype: "float16"
 device: "auto"
 output_csv: "results/metrics_all.csv"
 
-# Workloads / benchmarks to evaluate on (see README milestones).
+# Workloads / benchmarks to evaluate on.
 workloads:
   - spec_bench
   - mt_bench
   - humaneval
   - gsm8k
 
-# The experiment matrix is filled in per-roadmap (Milestone 3).
+# The experiment matrix.
 # Each entry becomes one row of results/metrics_all.csv.
 experiment_matrix:
   - name: "baseline_fp16"

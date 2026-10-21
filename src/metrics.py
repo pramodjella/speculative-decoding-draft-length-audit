@@ -1,7 +1,7 @@
 """Inference metrics: latency (TTFT / TPOT), throughput, memory, accuracy.
 
 All functions accept plain numbers / lists so they are trivially unit-testable
-and reusable across every experiment in the roadmap.
+and reusable across every experiment.
 """
 from __future__ import annotations
 

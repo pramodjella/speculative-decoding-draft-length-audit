@@ -1,4 +1,4 @@
-"""LOCAL SGLang EAGLE-3 fixed-K sweep for Qwen3-1.7B (8GB-VRAM roadmap track).
+"""LOCAL SGLang EAGLE-3 fixed-K sweep for Qwen3-1.7B (8GB-VRAM local track).
 
 Captures, per (workload, prompt, K): wall-clock latency, generated tokens, and
 EAGLE-3 mean accept length (completion_tokens / spec_verify_ct). K=0 is the

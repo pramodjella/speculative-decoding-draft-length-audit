@@ -1,4 +1,4 @@
-"""Full physical roadmap driver with checkpointing and single model load.
+"""Full physical sweep driver with checkpointing and single model load.
 
 Fixes applied:
   1. Models loaded ONCE in main() and passed to run_workload()

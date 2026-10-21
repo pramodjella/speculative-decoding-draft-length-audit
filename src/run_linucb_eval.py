@@ -126,7 +126,7 @@ def main():
 
         if not baselines:
             print(f"\n  WARNING: No baselines found for {wl_name} — skipping!")
-            print(f"  Run the full roadmap first to get baseline latencies.")
+            print(f"  Run the full physical sweep (src/run_physical_roadmap.py) first to get baseline latencies.")
             continue
 
         print(f"\n{'='*60}")
