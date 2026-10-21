@@ -11,7 +11,7 @@ Fixes the three blocking issues from the M5 plan:
 
 Real benchmarks (fixes synthetic-data challenge): humaneval, gsm8k, mt_bench are
 real datasets; "mixed" is a genuine interleaved trace assembled from real
-chat/code/math/translation/summarisation prompts (the roadmap's stress workload).
+chat/code/math/translation/summarisation prompts (the stress workload).
 
 Everything is checkpointed per (seed, workload, prompt_idx, policy) so a timed-out
 run resumes exactly where it stopped.

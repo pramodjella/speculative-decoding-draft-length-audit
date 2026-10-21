@@ -17,7 +17,7 @@ from collections import defaultdict
 import statistics as st
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-# Real roadmap controllers from the codebase (acceptance-driven ones are testable
+# The real controllers from the codebase (acceptance-driven ones are testable
 # on EAGLE-3 traces; EntropyThreshold/LinUCB need per-step draft entropy that vLLM
 # EAGLE-3 does not expose, so they are NOT included here).
 from controllers import UCB, EpsilonGreedy, AcceptanceHistoryController

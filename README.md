@@ -1,10 +1,7 @@
 # Following the Speedup: An Audit of Adaptive Draft Length in Speculative Decoding
 
-Code, raw measurements and analysis scripts for the submission. Author names, the
-affiliation and the source repository link have been removed for double-blind review, and
-people's names in comments and notes are replaced by `[name withheld]`. Some notes still refer
-to files that are not part of this copy (the paper source, a project roadmap and a literature
-spreadsheet).
+Code, raw measurements and analysis scripts for the submission. For double-blind review,
+names in comments and notes read `[name withheld]`.
 
 ## What is measured
 

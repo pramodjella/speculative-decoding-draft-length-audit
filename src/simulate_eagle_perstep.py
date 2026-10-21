@@ -2,7 +2,7 @@
 
 Answers the one surviving controller question: does SVIP-style per-step entropy
 stopping beat fixed K on EAGLE-3? (Per-request bandits already shown null, +2%
-oracle ceiling -- see simulate_eagle_controllers.py.) Uses the REAL roadmap
+oracle ceiling -- see simulate_eagle_controllers.py.) Uses the REAL
 EntropyThreshold (SVIP) controller from the codebase.
 
 Chain-mode (eagle-topk=1) drafting is a prefix, so drafting K'<=max_k accepts
