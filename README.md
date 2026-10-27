@@ -11,10 +11,10 @@ against a tuned fixed K, on one H100 at batch size 1 unless stated.
 
 | Question | Result | Where |
 |---|---|---|
-| How much of the oracle gain can a draft-side signal reach? | About 20%. The other ~80% is variance that the draft-side state does not determine. | Table 2, Figure 2 |
-| Where does the reachable part live? | In the drafter's hidden state: probe AUC 0.84 to 0.88. Logit features and token position recover almost none of it. | Section 6, `results/perstep_signal/` |
-| Does acting on that signal pay in a running engine? | No: 2 to 17% slower than a tuned fixed depth. | Tables 3 and 4 |
-| Which policy survives? | Signal-free saturation tail-pruning, cum(0.2). In vLLM: +2 to +6% over the fastest native fixed-K engine on three workloads (one within noise), and +6.8 ± 0.2% (mean ± SE over three fresh containers) on all 480 Spec-Bench prompts at 512 output tokens, with each category against its own best fixed depth (K = 4 or 5; K = 2 for translation). Every category gains on every container. The threshold 0.2 was fixed on the original workloads before the Spec-Bench runs. | Tables 5 and 6 |
+| How much of the oracle gain can a draft-side signal reach? | About 20%, with the signals we tested. They did not recover the other ~80%. | Table 2, Figure 2 |
+| Where does the reachable part live? | In the drafter's hidden state: probe AUC 0.84 to 0.88. Logit features stay near chance (AUC 0.42 to 0.59) and token position recovers nothing. | Section 6, `results/perstep_signal/` |
+| Does acting on that signal pay in a running engine? | Not for the learned probe: 5 to 22% slower than a tuned fixed depth. Entropy stopping is mixed. | Tables 3 and 4 |
+| Which policy survives? | Signal-free saturation tail-pruning, cum(0.2). In vLLM (eager mode, Llama-3.1-8B): +2 to +6% over the fastest native fixed-K engine on three workloads (one within noise), and +6.8 ± 0.2% (mean ± SE over three fresh containers) on all 480 Spec-Bench prompts at 512 output tokens, with each category against its own best fixed depth (K = 4 or 5; K = 2 for translation). Every category gains on every container. The threshold 0.2 was fixed on the original workloads before the Spec-Bench runs. | Tables 5 and 6 |
 | What happens at larger batch? | On Spec-Bench, with each category at its own best fixed depth: +1.8% at batch 4 and +2.4% at batch 8, neither distinguishable from zero. | Table 11, Figure 6 |
 | How faithful are the outputs? | No less faithful than stock vLLM speculative decoding: 78 to 84% of Spec-Bench outputs match non-speculative greedy decoding token for token, the same rate as stock speculative decoding, and every mismatch is at a near-tie between the target's top two tokens (log-probability gap at most 0.25). | Table 10 |
 
@@ -48,7 +48,7 @@ need an H100 and a [Modal](https://modal.com) account. Everything else reads the
 | Table 2, decomposition; Figure 2 | `results/perstep_signal/bayes_ceiling_paired.json` (every fold), `bayes_ceiling_paired.md` | `modal_eagle3_hidden_full_capture.py` | `analyze_bayes_ceiling_paired.py` (needs the captures, see below) |
 | Appendix B, controls | `results/perstep_signal/bayes_ceiling_control_paired.json`, `hidden_full_audit.json` | same | `audit_decomposition.py`, `audit_probe_recovery.py` (need the captures) |
 | Table 3, in-loop probe | cells in `DELIVERABLES.md`, section E5 | `modal_eagle_inloop.py` | – |
-| Table 4, policy zoo | `results/eagle_zoo_verify.json` (held-out), `results/eagle_zoo_verify_iid.json` | `modal_eagle_zoo_verify.py` | – |
+| Table 4, policy zoo | `results/eagle_zoo_verify_iid.json` (interleaved split), `results/eagle_zoo_verify.json` (contiguous split) | `modal_eagle_zoo_verify.py` | – |
 | Table 5, fair baseline | `results/vllm_fairbase_llama8b_r{1,2,3}.json` (three fresh containers) | `modal_vllm_fairbase.py` | – |
 | Table 6, Spec-Bench at batch 1 | `results/specbench/specbench_spec_t1.json`, `_t2.json`, `_t3.json` (three fresh containers; native K = 4, 5 and padded K = 2) | `modal_vllm_specbench_rerun.py` | `analyze_specbench_rerun.py` |
 | Table 9, Spec-Bench against K = 2, 3 | `results/specbench/specbench_spec_c1.json`, `specbench_spec_c2.json` (native K = 2, 3 on two containers) | `modal_vllm_specbench_rerun.py` | `analyze_specbench_rerun.py` |
@@ -56,7 +56,7 @@ need an H100 and a [Modal](https://modal.com) account. Everything else reads the
 | Table 7, paired verdict | `results/eagle_paired.json`, `results/eagle_paired_deepseek.json` | `modal_eagle_paired.py` | – |
 | Figure 4, batch decay; temperature | `results/vllm_fairbase2_llama8b_b4.json`, `_b8.json`, `_t08.json` | `modal_vllm_fairbase2.py` | `analyze_make_figures.py` |
 | Figure 5, the survivor across settings | paired gains from the runs above, entered in the script | – | `analyze_make_figures.py` |
-| Table 8, online controllers | `results/eagle3_controller_findings.md` | `modal_controller_benchmark.py` | – |
+| Table 8, per-request controllers (replayed on captured traces) | `results/eagle3_controller_findings.md` | `modal_eagle3_traces.py` | `src/simulate_eagle_controllers.py` |
 | Table 10, token identity | `results/specbench/specbench_reference_full.json` (greedy reference with top-2 log-probabilities) | `modal_vllm_specbench_rerun.py` | `analyze_specbench_rerun.py` |
 | Table 11, Figure 6, Spec-Bench batch | `results/specbench/specbench_spec_tb1.json`, `specbench_spec_b1.json` | `modal_vllm_specbench_rerun.py` | `analyze_specbench_rerun.py` |
 | Verification cost against K | `results/verify_microbench.json` | `modal_verify_microbench.py` | – |
@@ -71,8 +71,9 @@ table lists every number the paper uses; the Spec-Bench numbers come from
 
 - All arms of a comparison run in one process on the same GPU, round-robin with the order
   rotated each cycle. Gains are paired differences (per cycle, or per prompt for Spec-Bench)
-  with bootstrap 95% intervals. Unpaired, back-to-back timing gave contradictory answers from
-  identical settings, which is why the protocol is paired.
+  with bootstrap 95% intervals. Unpaired, back-to-back timing of one fixed arm varied by up to
+  14% across three repeats, which is why the protocol is paired.
+- All vLLM tail-pruning runs use eager mode (`enforce_eager=True`, no CUDA graphs).
 - The baseline for each workload is its fastest fixed depth.
 - Spec-Bench rerun: all 480 prompts (MT-Bench first turns plus five other categories), chat
   template, greedy, 512 new tokens, vLLM 0.24.0 pinned, one H100. The run log at the end of

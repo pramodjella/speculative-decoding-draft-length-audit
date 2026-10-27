@@ -7,7 +7,7 @@ kept at the end, fenced and marked as superseded, so the history of each figure 
 followed; none of them should be quoted.
 
 Hardware for every GPU run: one NVIDIA H100 80GB through Modal. Greedy decoding, batch size 1
-unless stated. The `modal_*.py` scripts need an H100 and a Modal account; the `analyze_*.py`
+unless stated. The vLLM tail-pruning runs use eager mode (`enforce_eager=True`, no CUDA graphs). The `modal_*.py` scripts need an H100 and a Modal account; the `analyze_*.py`
 scripts run on a CPU from the released files.
 
 ## Current numbers
@@ -23,10 +23,10 @@ scripts run on a CPU from the released files.
 | Saturation tail-pruning, eager tree engine, held-out prompts | +2.9 to +4.8% over the strongest fixed depth (Llama-3.1-8B) | E6 | `results/eagle_paired.json` |
 | Saturation tail-pruning cum(0.2), vLLM, three containers | HumanEval +5.6 ± 1.2%, GSM8K +5.7 ± 2.0%, MT-Bench +2.0 ± 1.1% | E6 | `results/vllm_fairbase_llama8b_r{1,2,3}.json` |
 | cum(0.2) on Spec-Bench, 480 prompts, 512 tokens, three fresh containers | +6.8 ± 0.2% (mean ± SE) with each category against its own best fixed K; +4.8 to +8.7% by category | E7 | `results/specbench/` |
-| Larger batches | Spec-Bench, each category at its own best fixed K: +1.8% [−2.5, +5.0] at B=4 and +2.4% [−2.0, +5.7] at B=8, not distinguishable from zero; fair-baseline workloads: about +1% at B=4, 0 to −3% at B=8 | E6, E7 | `results/vllm_fairbase2_llama8b_b{4,8}.json`, `results/specbench/specbench_spec_tb1.json` |
+| Larger batches | Spec-Bench, each category at its own best fixed K: +1.8% [−2.5, +5.0] at B=4 and +2.4% [−2.0, +5.7] at B=8, not distinguishable from zero; fair-baseline workloads: about +1% at B=4, −3 to +1% at B=8 | E6, E7 | `results/vllm_fairbase2_llama8b_b{4,8}.json`, `results/specbench/specbench_spec_tb1.json` |
 | Outputs against non-speculative greedy decoding | 78 to 84% identical token for token, the same rate as stock speculative decoding; every mismatch at a top-1/top-2 gap of at most 0.25 nats | E7 | `results/specbench/specbench_reference_full.json` |
 | Verification cost against K at B=1 | 15.8 ms for one token, then 18.5 to 18.2 ms for 2 to 8 query positions | E6 | `results/verify_microbench.json` |
-| Online per-request controllers | all lose to the tuned fixed K; the per-request oracle is +2.0% | E6 | `results/eagle3_controller_findings.md` |
+| Per-request controllers, replayed on captured traces | all lose to the tuned fixed K; the per-request oracle is +2.0% | E6 | `results/eagle3_controller_findings.md` |
 
 ## E1. Batch sweep (context 2048, B = 1 to 64)
 
@@ -171,16 +171,21 @@ in-loop harness wrote to a remote volume, so the table above is the record of it
 ## E6. Published-style policies, the paired protocol, and the vLLM replication
 
 Four draft-stopping policies of the kinds in the literature (an entropy rule in the style of
-SVIP, a top-1 margin rule, a cumulative-probability rule in the style of SADDLE and PACER, and
+SVIP, a top-1 margin rule, a cumulative-probability rule in the style of DDD and Wang et al. (2026), and
 a trained hidden-state probe in the style of SpecDec++) run through the same in-loop code path
 (`modal_eagle_zoo.py`), then a sequence of checks that became part of the result.
 
 Evaluation failure modes this run exposed (each one inflates adaptive-length results):
 1. Mechanism mismatch: an analysis made in the chain regime, deployed into a tree engine.
-2. In-distribution threshold choice: the cumulative rule read +2.4% on the prompts its
-   threshold was tuned on and −1.9% on held-out prompts.
-3. Unpaired sequential timing: three runs with identical thresholds gave +2.4%, −1.9% and
-   +6.4%. Per-cycle data show drift of several percent within a run, so arms are now timed
+2. Where the fixed baseline is chosen: in the interleaved-split run the cumulative rule read
+   +9.8% against the fixed depth chosen on the training prompts and +6.4% against the best fixed
+   depth on the benched prompts (`results/eagle_zoo_verify_iid.json`, protocols B and A). A
+   contiguous train/bench split confounds the comparison further: MT-Bench is ordered by
+   category, its best fixed depth flips from 7 to 5 across the split, and the cumulative rule read
+   −1.9% there (`results/eagle_zoo_verify.json`, a different container). The first pass, with
+   thresholds chosen on the benched prompts (`results/eagle_zoo.json`), read +2.4%.
+3. Unpaired sequential timing: one fixed arm read 147.0, 129.2 and 135.2 tok/s across three
+   repeats in one run (`results/eagle_zoo_verify.json`). Per-cycle data show drift of several percent within a run, so arms are now timed
    round-robin with the order rotated each cycle (`modal_eagle_paired.py`).
 
 Paired verdict on held-out prompts against the strongest fixed depth per workload
@@ -214,8 +219,9 @@ fresh containers:
 | GSM8K | +7.1 | +8.4 | +1.8 | +5.7 ± 2.0 |
 | MT-Bench | +3.5 | −0.2 | +2.7 | +2.0 ± 1.1 |
 
-At B=4 the gain falls to about +1%, and at B=8 to between 0 and −3%; the batch-level stopping
-rule is what erodes it (`modal_vllm_fairbase2.py`). Verification time at B=1 is flat in K from
+At B=4 the gain falls to about +1%, and at B=8 to between −3 and +1%; we attribute the decay to
+the batch-level stopping rule, which we did not test directly (`modal_vllm_fairbase2.py`).
+Verification time at B=1, 4 and 8 is flat in K from
 2 to 8 query positions (`modal_verify_microbench.py`). An earlier vLLM run with padded fixed
 arms (`modal_vllm_tailprune2.py`) gave +6.4%, +7.5% and +2.9% for Llama-3.1-8B and +1.3%,
 +0.3% and +0.7% for Qwen3-14B.
@@ -226,7 +232,8 @@ Files: `results/perstep_signal/policy_zoo.md`, `results/eagle_zoo.json`,
 `results/vllm_tailprune2_*.json`, `results/verify_microbench.json`.
 Scripts: `modal_eagle_zoo.py`, `modal_eagle_zoo_verify.py`, `modal_eagle_paired.py`,
 `modal_vllm_fairbase.py`, `modal_vllm_fairbase2.py`, `modal_vllm_tailprune2.py`,
-`modal_verify_microbench.py`; online controllers: `modal_controller_benchmark.py`.
+`modal_verify_microbench.py`; per-request controllers: `modal_eagle3_traces.py` (capture) and
+`src/simulate_eagle_controllers.py` (replay).
 
 ## E7. Spec-Bench rerun of the fair-baseline result (vLLM 0.24.0, B = 1, 4, 8)
 

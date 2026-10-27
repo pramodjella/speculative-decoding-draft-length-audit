@@ -38,11 +38,11 @@ for b, v in zip(bars, vals):
 # a rounded number here that disagrees with the table by a tenth is a referee magnet.
 # Aim inside the bar, not at its top edge: an arrow tip landing on the bar-top value label
 # renders as a strike-through of the number.
-ax.annotate("reachable from any\ndraft-side signal\n(~1/5 of span)",
+ax.annotate("reached by the\nhidden-state probe\n(~1/5 of span)",
             xy=(3, vals[3] - 0.022), xytext=(1.55, vals[-1] - 0.035),
             arrowprops=dict(arrowstyle="->", lw=1), fontsize=9)
-ax.annotate("irreducible\n(~4/5 of span)",
-            xy=(4, vals[-1] - 0.012), xytext=(3.45, vals[0] + 0.045),
+ax.annotate("not reached by the\nsignals we tested\n(~4/5 of span)",
+            xy=(4, vals[-1] - 0.012), xytext=(2.55, vals[-1] + 0.012),
             arrowprops=dict(arrowstyle="->", lw=1), fontsize=9)
 ax.set_title("Bayes-ceiling decomposition of the per-step oracle (Llama-3.1-8B)")
 plt.xticks(rotation=12)
@@ -56,13 +56,13 @@ settings = ["Llama-8B\nvLLM chain", "Llama-8B\nEAGLE tree", "Qwen3-14B\nvLLM cha
             "DeepSeek (weak head)\nEAGLE tree"]
 # per-workload paired gains (he, gsm8k, mtb)
 gains = [
-    [6.43, 7.46, 2.87],       # vllm llama cum0.2
+    [5.62, 5.74, 1.99],       # vllm llama cum0.2, fair baseline (Table 5)
     [2.90, 3.58, 4.77],       # tree llama paired
     [1.26, 0.32, 0.68],       # vllm qwen cum0.2
     [-0.73, -0.86, 1.36],     # tree deepseek
 ]
 ses = [
-    [0.83, 1.29, 0.44],
+    [1.17, 2.02, 1.12],
     [1.83, 0.32, 0.50],
     [0.27, 1.38, 0.50],
     [1.19, 2.26, 3.52],
@@ -78,7 +78,7 @@ for i in range(3):
 ax.axhline(0, color="black", lw=0.8)
 ax.set_xticks(x); ax.set_xticklabels(settings, fontsize=9)
 ax.set_ylabel("paired gain vs strongest tuned fixed (%)")
-ax.set_title("Saturation tail-pruning: ties or beats tuned fixed everywhere tested")
+ax.set_title("Saturation tail-pruning at batch size 1: ties or beats tuned fixed depth")
 ax.legend(fontsize=9, frameon=False)
 plt.tight_layout()
 plt.savefig(os.path.join(OUT, "fig_survivor.png"), dpi=220)
@@ -111,7 +111,7 @@ print("fig_paired_protocol.png")
 
 
 # ── Fig 5 (paper): batch decay of the survivor (paired vs strongest NATIVE engine) ───── #
-# The profit window is the headline scoping claim ("B <= 4") and previously appeared in prose
+# The profit window is the headline scoping claim (batch size 1) and previously appeared in prose
 # only. Baseline is the strongest native arm (native2/native3, each drafting its true K) --
 # never the padded native7 -- and "strongest" means the arm that minimises the reported gain.
 WL = ["humaneval", "gsm8k", "mt_bench"]
@@ -151,8 +151,8 @@ for w, pts in series.items():
     ax.errorbar(xs, [p[1] for p in pts], yerr=[p[2] for p in pts], marker="o", ms=5,
                 capsize=3, color=wl_colors[w], label=wl_names[w])
 ax.axhline(0, color="black", lw=0.8)
-ax.axvspan(0.85, 4, color="#6AA84F", alpha=0.07)
-ax.text(1.6, ax.get_ylim()[0] + 0.4, "profit window", fontsize=8, color="#3A6B2A")
+ax.axvspan(0.85, 1.25, color="#6AA84F", alpha=0.10)
+ax.text(1.3, ax.get_ylim()[0] + 0.4, "profit window: B=1", fontsize=8, color="#3A6B2A")
 ax.set_xscale("log", base=2)
 ax.set_xticks([1, 4, 8])
 ax.set_xticklabels(["1", "4", "8"])
@@ -169,7 +169,7 @@ print("done ->", OUT)
 # ── Fig 1 (paper): the audit as a waterfall (oracle -> survivor, gate by gate) ───────── #
 # Bars 1-2 are cost-model figures on the Llama-3.1-8B ladder; bars 3-4 are measured
 # wall-clock. They sit in two separate panels with their own headers so the two currencies
-# never share a plot area. The y-range is shared so heights stay comparable; gate 2 is the
+# never share a plot area. The y-range is shared so heights stay comparable; gate 3 is the
 # arrow that crosses the gap from the cost model to the clock.
 from matplotlib.patches import ConnectionPatch
 bcp2 = json.load(open(os.path.join(RES, "perstep_signal", "bayes_ceiling_paired.json")))
@@ -192,7 +192,7 @@ survivor_pct = sum(_sb["main"][t]["all_best_per_category"]["gain"] for t in _tun
 fig, (axl, axr) = plt.subplots(1, 2, figsize=(5.2, 3.4), sharey=True,
                                gridspec_kw={"wspace": 0.42})
 panels = [
-    (axl, ["per-step\noracle", "reachable\nin principle"], [oracle_pct, reach_pct],
+    (axl, ["per-step\noracle", "reached by\nthe probe"], [oracle_pct, reach_pct],
      ["#B04030", "#4878A8"], "cost model"),
     (axr, ["in-loop probe\n(tree engine)", "signal-free\npruning (vLLM,\nSpec-Bench)"],
      [realized_pct, survivor_pct],
@@ -220,14 +220,14 @@ axr.spines["left"].set_visible(False)
 # gate 1: inside the cost-model panel
 axl.annotate("", xy=(0.66, reach_pct + 0.4), xytext=(0.33, oracle_pct - 0.8),
              arrowprops=dict(arrowstyle="->", lw=1.3, color="#555555"))
-axl.text(0.78, oracle_pct * 0.62, "gate 1\n~82%\nirreducible", ha="left", va="center",
+axl.text(0.78, oracle_pct * 0.62, "gate 1\n~82% not\nrecovered", ha="left", va="center",
          fontsize=8.5, color="#333333")
-# gate 2: from the last cost-model bar to the first wall-clock bar, across the panel gap
+# gate 3: from the last cost-model bar to the first wall-clock bar, across the panel gap
 con = ConnectionPatch(xyA=(1.31, reach_pct), coordsA=axl.transData,
                       xyB=(-0.31, realized_pct * 0.5), coordsB=axr.transData,
                       arrowstyle="->", lw=1.3, color="#555555")
 fig.add_artist(con)
-axr.text(-0.55, hi - 3.0, "gate 2\nrun inside\nthe engine", ha="left", va="top",
+axr.text(-0.55, hi - 3.0, "gate 3\nrun inside\nthe engine", ha="left", va="top",
          fontsize=8.5, color="#333333")
 fig.suptitle("Following the promised speedup", fontsize=11.5, y=0.98)
 fig.subplots_adjust(left=0.15, right=0.98, bottom=0.17, top=0.82)
